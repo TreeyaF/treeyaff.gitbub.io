@@ -2714,7 +2714,7 @@
                         console.log('[DEBUG] 原始请求数据:', request);
                         
                         const cloudEventData = {
-                            request_id: request.id,
+                            // 移除request_id字段，避免UUID类型错误
                             title: `${request.arc || 'N/A'} - ${request.cohort || 'N/A'} - ${request.target || 'unknown'}`,
                             content: request.content || request.notes || '无内容',
                             date: request.sendDate,
