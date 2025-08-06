@@ -1525,7 +1525,34 @@
                 
                 // 完全使用云端数据，避免重复
                 requests = cloudRequests;
-                console.log(`[CLOUD] 使用云端请求数据，共 ${requests.length} 个请求`);
+                
+                // 额外的去重处理，确保绝对唯一
+                requests = requests.filter((request, index, self) => {
+                    // 按ID去重
+                    const firstIndex = self.findIndex(r => r.id === request.id);
+                    if (firstIndex !== index) {
+                        console.log(`[CLOUD] 发现重复ID请求: ${request.id}, 已过滤`);
+                        return false;
+                    }
+                    
+                    // 按关键信息去重
+                    const duplicateIndex = self.findIndex(r => 
+                        r.sendDate === request.sendDate && 
+                        r.content === request.content && 
+                        r.arc === request.arc && 
+                        r.cohort === request.cohort &&
+                        r.submitter === request.submitter &&
+                        r.status === request.status
+                    );
+                    if (duplicateIndex !== index) {
+                        console.log(`[CLOUD] 发现重复内容请求: ${request.arc}-${request.cohort} ${request.sendDate}, 已过滤`);
+                        return false;
+                    }
+                    
+                    return true;
+                });
+                
+                console.log(`[CLOUD] 使用云端请求数据，去重后共 ${requests.length} 个请求`);
                 
                 // 加载事件数据
                 const { data: eventsData, error: eventsError } = await supabase
@@ -1553,7 +1580,32 @@
                 
                 // 完全使用云端数据，避免重复
                 approvedEvents = cloudEvents;
-                console.log(`[CLOUD] 使用云端事件数据，共 ${approvedEvents.length} 个事件`);
+                
+                // 额外的去重处理，确保绝对唯一
+                approvedEvents = approvedEvents.filter((event, index, self) => {
+                    // 按ID去重
+                    const firstIndex = self.findIndex(e => e.id === event.id);
+                    if (firstIndex !== index) {
+                        console.log(`[CLOUD] 发现重复ID事件: ${event.id}, 已过滤`);
+                        return false;
+                    }
+                    
+                    // 按关键信息去重
+                    const duplicateIndex = self.findIndex(e => 
+                        e.date === event.date && 
+                        e.content === event.content && 
+                        e.arc === event.arc && 
+                        e.cohort === event.cohort
+                    );
+                    if (duplicateIndex !== index) {
+                        console.log(`[CLOUD] 发现重复内容事件: ${event.title}, 已过滤`);
+                        return false;
+                    }
+                    
+                    return true;
+                });
+                
+                console.log(`[CLOUD] 使用云端事件数据，去重后共 ${approvedEvents.length} 个事件`);
                 
                 // 更新本地存储以保持同步
                 localStorage.setItem('massRequests', JSON.stringify(requests));
@@ -1618,6 +1670,44 @@
             }
         }
         
+        // 清理重复数据
+        function cleanupDuplicateData() {
+            console.log('[CLEANUP] 开始清理重复数据');
+            
+            const originalRequestsCount = requests.length;
+            const originalEventsCount = approvedEvents.length;
+            
+            // 清理重复请求
+            requests = requests.filter((request, index, self) => {
+                const firstIndex = self.findIndex(r => r.id === request.id);
+                return firstIndex === index;
+            });
+            
+            // 清理重复事件
+            approvedEvents = approvedEvents.filter((event, index, self) => {
+                const firstIndex = self.findIndex(e => e.id === event.id);
+                return firstIndex === index;
+            });
+            
+            const cleanedRequestsCount = requests.length;
+            const cleanedEventsCount = approvedEvents.length;
+            
+            if (originalRequestsCount !== cleanedRequestsCount || originalEventsCount !== cleanedEventsCount) {
+                console.log(`[CLEANUP] 清理完成: 请求 ${originalRequestsCount} -> ${cleanedRequestsCount}, 事件 ${originalEventsCount} -> ${cleanedEventsCount}`);
+                
+                // 更新本地存储
+                localStorage.setItem('massRequests', JSON.stringify(requests));
+                localStorage.setItem('approvedEvents', JSON.stringify(approvedEvents));
+                
+                return true; // 有清理动作
+            }
+            
+            return false; // 无需清理
+        }
+        
+        // 防止重复刷新的标志
+        let isRefreshing = false;
+        
         // 设置实时数据监听
         function setupRealtimeSync() {
             if (!collaborationEnabled || !supabase) {
@@ -1632,11 +1722,23 @@
                 .on('postgres_changes', 
                     { event: '*', schema: 'public', table: 'requests' }, 
                     (payload) => {
-                        console.log('[REALTIME] 检测到请求数据变化');
+                        console.log('[REALTIME] 检测到请求数据变化:', payload.eventType);
+                        
+                        // 防止重复刷新
+                        if (isRefreshing) {
+                            console.log('[REALTIME] 正在刷新中，跳过此次更新');
+                            return;
+                        }
+                        
                         // 延迟刷新，避免频繁更新
                         setTimeout(() => {
-                            loadCloudData();
-                        }, 1000);
+                            if (!isRefreshing) {
+                                isRefreshing = true;
+                                loadCloudData().finally(() => {
+                                    isRefreshing = false;
+                                });
+                            }
+                        }, 2000);
                     }
                 )
                 .subscribe();
@@ -2757,6 +2859,12 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             // 首先初始化权限系统
             initPermissionSystem();
             
+            // 清理可能存在的重复数据
+            const hasCleaned = cleanupDuplicateData();
+            if (hasCleaned) {
+                console.log('[INIT] 已清理重复数据');
+            }
+            
             // 然后加载基本功能
             generateCalendar();
             
@@ -2939,9 +3047,16 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             }
             
             const recurringGroup = Date.now();
+            const baseTimestamp = Date.now();
+            
+            console.log(`[SUBMIT] 开始创建请求，发送日期数量: ${sendDates.length}`);
+            
             sendDates.forEach((date, index) => {
+                // 生成真正唯一的ID
+                const uniqueId = `${baseTimestamp}_${index}_${Math.random().toString(36).substr(2, 9)}`;
+                
                 const request = {
-                    id: Date.now() + index,
+                    id: uniqueId,
                     content: formData.get('content'),
                     arc: arc,
                     cohort: cohort,
@@ -2960,11 +3075,19 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     status: 'pending'
                 };
                 
+                console.log(`[SUBMIT] 创建请求 ${index + 1}/${sendDates.length}:`, {
+                    id: request.id,
+                    date: request.sendDate,
+                    arc: request.arc,
+                    cohort: request.cohort
+                });
+                
                 requests.push(request);
                 
                 // 同时保存到云端
                 if (collaborationEnabled && supabase) {
                     const cloudData = {
+                        id: request.id, // 使用本地生成的唯一ID
                         title: `${request.arc} - ${request.cohort} - ${request.target}`,
                         content: request.content,
                         date: request.sendDate,
@@ -2976,11 +3099,13 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         status: 'pending'
                     };
                     
+                    console.log(`[SUBMIT] 保存到云端:`, cloudData.id);
+                    
                     supabase.from('requests').insert([cloudData]).then(({ error }) => {
                         if (error) {
-                            console.warn('[SUBMIT] 云端保存失败:', error);
+                            console.warn(`[SUBMIT] 云端保存失败 (${request.id}):`, error);
                         } else {
-                            console.log('[SUBMIT] 请求已同步到云端');
+                            console.log(`[SUBMIT] 请求已同步到云端 (${request.id})`);
                         }
                     });
                 }
@@ -2998,17 +3123,25 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             closeSubmitModal();
             document.getElementById('successModal').style.display = 'block';
             
+            console.log(`[SUBMIT] 提交完成，共创建 ${sendDates.length} 个请求`);
+            
             // 延迟刷新界面，等待云端同步完成
             setTimeout(() => {
-                if (collaborationEnabled) {
+                if (collaborationEnabled && !isRefreshing) {
                     // 如果启用协同功能，从云端重新加载数据
-                    loadCloudData();
+                    console.log('[SUBMIT] 开始刷新云端数据');
+                    isRefreshing = true;
+                    loadCloudData().finally(() => {
+                        isRefreshing = false;
+                        console.log('[SUBMIT] 云端数据刷新完成');
+                    });
                 } else {
                     // 否则只刷新本地界面
+                    console.log('[SUBMIT] 刷新本地界面');
                     generateCalendar();
                     loadPendingRequests();
                 }
-            }, 2000);
+            }, 3000); // 增加延迟时间，确保云端保存完成
             
             // 恢复提交按钮状态
             restoreButton();
