@@ -1523,16 +1523,9 @@
                     submitTime: new Date(item.created_at).toLocaleString('zh-CN')
                 }));
                 
-                // 合并云端数据和本地数据
-                const localRequests = JSON.parse(localStorage.getItem('massRequests') || '[]');
-                requests = [...cloudRequests];
-                
-                // 添加本地独有的数据
-                localRequests.forEach(localReq => {
-                    if (!requests.some(cloudReq => cloudReq.id === localReq.id)) {
-                        requests.push(localReq);
-                    }
-                });
+                // 完全使用云端数据，避免重复
+                requests = cloudRequests;
+                console.log(`[CLOUD] 使用云端请求数据，共 ${requests.length} 个请求`);
                 
                 // 加载事件数据
                 const { data: eventsData, error: eventsError } = await supabase
@@ -1558,14 +1551,13 @@
                     images: []
                 }));
                 
-                const localEvents = JSON.parse(localStorage.getItem('approvedEvents') || '[]');
-                approvedEvents = [...cloudEvents];
+                // 完全使用云端数据，避免重复
+                approvedEvents = cloudEvents;
+                console.log(`[CLOUD] 使用云端事件数据，共 ${approvedEvents.length} 个事件`);
                 
-                localEvents.forEach(localEvent => {
-                    if (!approvedEvents.some(cloudEvent => cloudEvent.id === localEvent.id)) {
-                        approvedEvents.push(localEvent);
-                    }
-                });
+                // 更新本地存储以保持同步
+                localStorage.setItem('massRequests', JSON.stringify(requests));
+                localStorage.setItem('approvedEvents', JSON.stringify(approvedEvents));
                 
                 updateCollabStatus(`✅ 数据同步完成！${requests.length} 个请求，${approvedEvents.length} 个事件`, 'success');
                 
@@ -2630,13 +2622,52 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 let dayEvents = approvedEvents.filter(event => event.date === dateStr);
                 let pendingEvents = requests.filter(req => req.status === 'pending' && req.sendDate === dateStr);
                 
-                // 去重处理，防止重复显示
-                dayEvents = dayEvents.filter((event, index, self) => 
-                    index === self.findIndex(e => e.id === event.id)
-                );
-                pendingEvents = pendingEvents.filter((event, index, self) => 
-                    index === self.findIndex(e => e.id === event.id)
-                );
+                // 强化去重处理，防止重复显示
+                dayEvents = dayEvents.filter((event, index, self) => {
+                    // 按ID去重
+                    const firstIndex = self.findIndex(e => e.id === event.id);
+                    if (firstIndex !== index) {
+                        console.log(`[CALENDAR] 发现重复的已批准事件ID: ${event.id}, 已过滤`);
+                        return false;
+                    }
+                    
+                    // 按内容去重（防止相同内容的不同ID）
+                    const contentMatch = self.findIndex(e => 
+                        e.date === event.date && 
+                        e.content === event.content && 
+                        e.arc === event.arc && 
+                        e.cohort === event.cohort
+                    );
+                    if (contentMatch !== index) {
+                        console.log(`[CALENDAR] 发现重复的已批准事件内容: ${event.title}, 已过滤`);
+                        return false;
+                    }
+                    
+                    return true;
+                });
+                
+                pendingEvents = pendingEvents.filter((event, index, self) => {
+                    // 按ID去重
+                    const firstIndex = self.findIndex(e => e.id === event.id);
+                    if (firstIndex !== index) {
+                        console.log(`[CALENDAR] 发现重复的待审核事件ID: ${event.id}, 已过滤`);
+                        return false;
+                    }
+                    
+                    // 按内容去重
+                    const contentMatch = self.findIndex(e => 
+                        e.sendDate === event.sendDate && 
+                        e.content === event.content && 
+                        e.arc === event.arc && 
+                        e.cohort === event.cohort
+                    );
+                    if (contentMatch !== index) {
+                        console.log(`[CALENDAR] 发现重复的待审核事件内容: ${event.arc}-${event.cohort}, 已过滤`);
+                        return false;
+                    }
+                    
+                    return true;
+                });
                 
                 // 根据筛选条件过滤已批准事件
                 if (currentFilter !== 'all') {
@@ -2967,6 +2998,18 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             closeSubmitModal();
             document.getElementById('successModal').style.display = 'block';
             
+            // 延迟刷新界面，等待云端同步完成
+            setTimeout(() => {
+                if (collaborationEnabled) {
+                    // 如果启用协同功能，从云端重新加载数据
+                    loadCloudData();
+                } else {
+                    // 否则只刷新本地界面
+                    generateCalendar();
+                    loadPendingRequests();
+                }
+            }, 2000);
+            
             // 恢复提交按钮状态
             restoreButton();
         });
@@ -2976,7 +3019,34 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         // 加载待审核需求
         function loadPendingRequests() {
             const pendingContainer = document.getElementById('pendingRequests');
-            const pendingRequests = requests.filter(req => req.status === 'pending');
+            let pendingRequests = requests.filter(req => req.status === 'pending');
+            
+            // 去重处理，防止重复显示
+            pendingRequests = pendingRequests.filter((request, index, self) => {
+                // 按ID去重
+                const firstIndex = self.findIndex(r => r.id === request.id);
+                if (firstIndex !== index) {
+                    console.log(`[PENDING] 发现重复的待审核请求ID: ${request.id}, 已过滤`);
+                    return false;
+                }
+                
+                // 按内容去重
+                const contentMatch = self.findIndex(r => 
+                    r.sendDate === request.sendDate && 
+                    r.content === request.content && 
+                    r.arc === request.arc && 
+                    r.cohort === request.cohort &&
+                    r.submitter === request.submitter
+                );
+                if (contentMatch !== index) {
+                    console.log(`[PENDING] 发现重复的待审核请求内容: ${request.arc}-${request.cohort}, 已过滤`);
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            console.log(`[PENDING] 加载待审核请求，去重后共 ${pendingRequests.length} 个`);
             
             if (pendingRequests.length === 0) {
                 pendingContainer.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 40px;">暂无待审核需求</p>';
