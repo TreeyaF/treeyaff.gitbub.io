@@ -1025,6 +1025,12 @@
                 <button onclick="manualSync()" style="background: #3b82f6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     ☁️ 手动同步
                 </button>
+                <button onclick="testCloudConnection()" style="background: #059669; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🔗 测试连接
+                </button>
+                <button onclick="testPendingSave()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🧪 测试Pending
+                </button>
                 <button onclick="clearAllLocalData()" style="background: #dc2626; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🗑️ 清理数据
                 </button>
@@ -1326,8 +1332,29 @@
     <script>
         // 全局变量
         let currentDate = new Date();
-        let requests = JSON.parse(localStorage.getItem('massRequests') || '[]');
-        let approvedEvents = JSON.parse(localStorage.getItem('approvedEvents') || '[]');
+        let requests = [];
+        let approvedEvents = [];
+        
+        // 安全地初始化数据
+        try {
+            const savedRequests = localStorage.getItem('massRequests');
+            if (savedRequests) {
+                requests = JSON.parse(savedRequests);
+            }
+        } catch (error) {
+            console.warn('[INIT] 加载requests数据失败:', error);
+            localStorage.removeItem('massRequests');
+        }
+        
+        try {
+            const savedEvents = localStorage.getItem('approvedEvents');
+            if (savedEvents) {
+                approvedEvents = JSON.parse(savedEvents);
+            }
+        } catch (error) {
+            console.warn('[INIT] 加载events数据失败:', error);
+            localStorage.removeItem('approvedEvents');
+        }
         
         // 简化的权限系统
         let currentUserRole = 'requestor'; // 默认为Requestor
@@ -1700,6 +1727,9 @@
             }
         }
         
+        // 确保函数在全局作用域中可用
+        window.manualSync = manualSync;
+        
         // 保存审核状态到云端
         async function saveApprovalToCloud(requestId, status, reason = '') {
             if (!collaborationEnabled || !supabase) {
@@ -1946,6 +1976,261 @@
             });
             
             return statusCounts;
+        }
+        
+        // 查看requests表数据
+        async function viewRequestsTable() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法查看requests表');
+                return;
+            }
+            
+            try {
+                console.log('[VIEW] 开始查看requests表数据...');
+                updateCollabStatus('⏳ 正在查看requests表数据...', 'info');
+                
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                
+                if (error) {
+                    console.error('[VIEW] 查看requests表失败:', error);
+                    alert('❌ 查看requests表失败：' + error.message);
+                    return;
+                }
+                
+                console.log('[VIEW] requests表数据:', data);
+                
+                if (data && data.length > 0) {
+                    const summary = data.map((item, index) => {
+                        return `${index + 1}. ${item.title || 'N/A'} (${item.status || 'N/A'}) - ${item.date || 'N/A'}`;
+                    }).join('\n');
+                    
+                    alert(`📋 requests表数据 (最新10条)：\n\n${summary}\n\n总计：${data.length} 条记录\n\n详细信息请查看控制台日志。`);
+                } else {
+                    alert('📋 requests表当前为空\n\n可能的原因：\n1. 还没有提报过事件\n2. 所有请求都已被处理并清理\n3. 数据在其他表中');
+                }
+                
+                updateCollabStatus('✅ requests表查看完成', 'success');
+                
+            } catch (error) {
+                console.error('[VIEW] 查看requests表异常:', error);
+                alert('❌ 查看requests表异常：' + error.message);
+            }
+        }
+        
+        // 查看events表数据
+        async function viewEventsTable() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法查看events表');
+                return;
+            }
+            
+            try {
+                console.log('[VIEW] 开始查看events表数据...');
+                updateCollabStatus('⏳ 正在查看events表数据...', 'info');
+                
+                const { data, error } = await supabase
+                    .from('events')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                
+                if (error) {
+                    console.error('[VIEW] 查看events表失败:', error);
+                    alert('❌ 查看events表失败：' + error.message);
+                    return;
+                }
+                
+                console.log('[VIEW] events表数据:', data);
+                
+                if (data && data.length > 0) {
+                    const summary = data.map((item, index) => {
+                        return `${index + 1}. ${item.title || 'N/A'} - ${item.date || 'N/A'}`;
+                    }).join('\n');
+                    
+                    alert(`📅 events表数据 (最新10条)：\n\n${summary}\n\n总计：${data.length} 条记录\n\n详细信息请查看控制台日志。`);
+                } else {
+                    alert('📅 events表当前为空\n\n可能的原因：\n1. 还没有审核通过的事件\n2. 数据在requests表中等待审核');
+                }
+                
+                updateCollabStatus('✅ events表查看完成', 'success');
+                
+            } catch (error) {
+                console.error('[VIEW] 查看events表异常:', error);
+                alert('❌ 查看events表异常：' + error.message);
+            }
+        }
+        
+        // 检查表结构
+        async function checkTableStructure() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法检查表结构');
+                return;
+            }
+            
+            try {
+                console.log('[STRUCTURE] 开始检查表结构...');
+                updateCollabStatus('⏳ 正在检查表结构...', 'info');
+                
+                // 尝试获取requests表的所有字段
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .limit(1);
+                
+                if (error) {
+                    console.error('[STRUCTURE] 表结构检查失败:', error);
+                    alert('❌ 表结构检查失败：' + error.message);
+                    return;
+                }
+                
+                console.log('[STRUCTURE] requests表结构示例:', data);
+                
+                // 显示表结构信息
+                if (data && data.length > 0) {
+                    const fields = Object.keys(data[0]);
+                    console.log('[STRUCTURE] requests表字段:', fields);
+                    alert(`📋 requests表结构检查完成！\n\n字段列表：\n${fields.map(field => `• ${field}`).join('\n')}`);
+                } else {
+                    console.log('[STRUCTURE] requests表为空，无法获取字段信息');
+                    alert('📋 requests表为空，无法获取字段信息。\n建议先添加一条测试数据。');
+                }
+                
+                updateCollabStatus('✅ 表结构检查完成', 'success');
+                
+            } catch (error) {
+                console.error('[STRUCTURE] 表结构检查异常:', error);
+                alert('❌ 表结构检查异常：' + error.message);
+            }
+        }
+        
+        // 简单的测试pending保存功能
+        async function testPendingSave() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用');
+                return;
+            }
+            
+            const testData = {
+                title: '测试Pending - ' + new Date().toLocaleString('zh-CN'),
+                content: '测试pending请求同步',
+                date: new Date().toISOString().split('T')[0],
+                status: 'pending',
+                contact: '测试用户',
+                email: 'test@example.com'
+            };
+            
+            try {
+                const { data, error } = await supabase.from('requests').insert([testData]);
+                if (error) {
+                    alert('❌ 测试失败: ' + error.message);
+                } else {
+                    alert('✅ 测试成功！其他用户现在应该能看到这个pending请求');
+                }
+            } catch (err) {
+                alert('❌ 测试异常: ' + err.message);
+            }
+        }
+        
+        // 强制保存测试数据到云端
+        async function forceSaveTest() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法测试保存');
+                return;
+            }
+            
+            // 使用最简单的数据结构进行测试
+            const testData = {
+                title: '测试数据 - ' + new Date().toLocaleString('zh-CN'),
+                content: '这是一个测试数据，用于验证云端保存功能',
+                date: new Date().toISOString().split('T')[0],
+                status: 'pending'
+            };
+            
+            console.log('[FORCE_TEST] 准备强制保存测试数据:', testData);
+            
+            try {
+                updateCollabStatus('⏳ 正在强制保存测试数据...', 'info');
+                
+                const { data, error } = await supabase
+                    .from('requests')
+                    .insert([testData]);
+                
+                if (error) {
+                    console.error('[FORCE_TEST] 强制保存失败:', error);
+                    console.error('[FORCE_TEST] 失败的数据:', testData);
+                    updateCollabStatus('❌ 强制保存测试失败', 'error');
+                    alert(`❌ 强制保存测试失败：\n\n错误信息：${error.message}\n\n建议：\n1. 检查Supabase表结构\n2. 确认字段名称匹配\n3. 检查数据类型是否正确`);
+                } else {
+                    console.log('[FORCE_TEST] 强制保存成功:', data);
+                    updateCollabStatus('✅ 强制保存测试成功', 'success');
+                    alert('✅ 强制保存测试成功！\n\n请登录Supabase控制台查看新增的测试数据。\n\n数据内容：' + testData.title);
+                }
+                
+            } catch (error) {
+                console.error('[FORCE_TEST] 强制保存异常:', error);
+                updateCollabStatus('❌ 强制保存测试异常', 'error');
+                alert('❌ 强制保存测试异常：' + error.message);
+            }
+        }
+        
+        // 测试云端连接
+        async function testCloudConnection() {
+            console.log('[TEST] 开始测试云端连接');
+            
+            if (!collaborationEnabled || !supabase) {
+                console.error('[TEST] 协同功能未启用或Supabase未连接');
+                alert('❌ 协同功能未启用，无法测试云端连接');
+                return;
+            }
+            
+            try {
+                updateCollabStatus('⏳ 正在测试云端连接...', 'info');
+                
+                // 1. 测试requests表连接
+                console.log('[TEST] 测试requests表连接...');
+                const { data: requestsData, error: requestsError } = await supabase
+                    .from('requests')
+                    .select('id')
+                    .limit(1);
+                
+                if (requestsError) {
+                    console.error('[TEST] requests表连接失败:', requestsError);
+                    updateCollabStatus('❌ requests表连接失败', 'error');
+                    alert('❌ requests表连接失败：' + requestsError.message);
+                    return;
+                }
+                
+                // 2. 测试events表连接
+                console.log('[TEST] 测试events表连接...');
+                const { data: eventsData, error: eventsError } = await supabase
+                    .from('events')
+                    .select('id')
+                    .limit(1);
+                
+                if (eventsError) {
+                    console.error('[TEST] events表连接失败:', eventsError);
+                    updateCollabStatus('❌ events表连接失败', 'error');
+                    alert('❌ events表连接失败：' + eventsError.message);
+                    return;
+                }
+                
+                // 3. 测试成功
+                console.log('[TEST] 云端连接测试成功');
+                console.log('[TEST] requests表数据:', requestsData);
+                console.log('[TEST] events表数据:', eventsData);
+                
+                updateCollabStatus('✅ 云端连接正常', 'success');
+                alert(`✅ 云端连接测试成功！\n\n📊 数据统计：\n• requests表：${requestsData ? requestsData.length : 0} 条记录\n• events表：${eventsData ? eventsData.length : 0} 条记录\n\n可以正常保存数据。`);
+                
+            } catch (error) {
+                console.error('[TEST] 云端连接测试异常:', error);
+                updateCollabStatus('❌ 云端连接测试异常', 'error');
+                alert('❌ 云端连接测试异常：' + error.message);
+            }
         }
         
         // 完全重置系统（本地+云端）
@@ -2897,6 +3182,9 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             
             console.log(`[TAB] 标签页切换完成: ${tabName}`);
         }
+        
+        // 确保函数在全局作用域中可用
+        window.showTab = showTab;
 
         // 全局的检查当前选择函数
         function checkCurrentSelection() {
@@ -3453,41 +3741,37 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 
                 requests.push(request);
                 
-                // 同时保存到云端
+                // 同时保存到云端 - 简化版本，确保语法正确
                 if (collaborationEnabled && supabase) {
+                    console.log('[SUBMIT] 开始保存pending请求到云端');
+                    
                     const cloudData = {
-                        id: request.id, // 使用本地生成的唯一ID
                         title: `${request.arc} - ${request.cohort} - ${request.target}`,
                         content: request.content,
                         date: request.sendDate,
-                        time: '09:00:00',
-                        location: request.teamDomain || 'Online',
+                        status: 'pending',
                         contact: request.submitter,
-                        email: request.email,
-                        images: request.images || [],
-                        status: 'pending'
+                        email: request.email
                     };
                     
-                    console.log(`[SUBMIT] 保存到云端:`, cloudData.id);
+                    console.log('[SUBMIT] 云端数据:', cloudData);
                     
-                    // 使用upsert确保数据一致性，避免重复插入
                     supabase.from('requests')
-                        .upsert([cloudData], { onConflict: 'id' })
-                        .then(({ error }) => {
+                        .insert([cloudData])
+                        .then(({ data, error }) => {
                             if (error) {
-                                console.warn(`[SUBMIT] 云端保存失败 (${request.id}):`, error);
-                                // 如果upsert失败，尝试普通插入
-                                return supabase.from('requests').insert([cloudData]);
-                            }
-                            return { error: null };
-                        })
-                        .then(({ error }) => {
-                            if (error) {
-                                console.error(`[SUBMIT] 云端保存彻底失败 (${request.id}):`, error);
+                                console.error('[SUBMIT] 云端保存失败:', error);
+                                updateCollabStatus('⚠️ 云端同步失败，仅保存到本地', 'warning');
                             } else {
-                                console.log(`[SUBMIT] 请求已成功同步到云端 (${request.id})`);
+                                console.log('[SUBMIT] 云端保存成功:', data);
+                                updateCollabStatus('✅ 请求已同步到云端', 'success');
                             }
+                        })
+                        .catch(err => {
+                            console.error('[SUBMIT] 云端保存异常:', err);
                         });
+                } else {
+                    console.log('[SUBMIT] 协同功能未启用，仅保存到本地');
                 }
             });
             
@@ -4567,6 +4851,17 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         });
 
         console.log('调试提示: 按 Ctrl+Shift+D 进行日期处理调试');
+        
+        // 确保所有关键函数在全局作用域中可用
+        window.showTab = showTab;
+        window.manualSync = manualSync;
+        window.testCloudConnection = testCloudConnection;
+        window.testPendingSave = testPendingSave;
+        window.clearAllLocalData = clearAllLocalData;
+        window.checkDataStatus = checkDataStatus;
+        window.showDebugInfo = showDebugInfo;
+        
+        console.log('[INIT] 所有全局函数已注册');
     </script>
 </body>
 </html>
