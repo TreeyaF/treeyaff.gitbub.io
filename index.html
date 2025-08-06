@@ -1289,6 +1289,12 @@
                     collaborationEnabled = true;
                     updateCollabStatus('✅ 协同功能已启用 - 支持多人实时协作');
                     console.log('协同功能启用成功');
+                    
+                    // 加载云端数据
+                    setTimeout(() => {
+                        loadDataFromCloud();
+                    }, 1000);
+                    
                 } else {
                     throw new Error('Supabase SDK未加载');
                 }
@@ -1299,11 +1305,107 @@
             }
         }
         
-        // 更新协同状态显示
-        function updateCollabStatus(message) {
-            const statusDiv = document.getElementById('collabStatus');
-            if (statusDiv) {
-                statusDiv.innerHTML = message;
+        // 从云端加载数据
+        async function loadDataFromCloud() {
+            if (!collaborationEnabled || !supabase) {
+                console.log('[DEBUG] 协同功能未启用，跳过云端数据加载');
+                return;
+            }
+            
+            console.log('[DEBUG] 开始从云端加载数据...');
+            
+            try {
+                // 加载请求数据
+                console.log('[DEBUG] 加载requests数据...');
+                const { data: requestsData, error: requestsError } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (requestsError) {
+                    console.log('[DEBUG] 加载requests失败:', requestsError);
+                } else if (requestsData && requestsData.length > 0) {
+                    console.log(`[DEBUG] 从云端加载到 ${requestsData.length} 个请求`);
+                    
+                    // 转换数据格式
+                    const cloudRequests = requestsData.map(item => ({
+                        id: item.id,
+                        content: item.content,
+                        arc: item.title.split(' - ')[0] || 'N/A',
+                        cohort: item.title.split(' - ')[1] || 'N/A', 
+                        target: item.title.split(' - ')[2] || 'unknown',
+                        sendDate: item.date,
+                        submitter: item.contact,
+                        teamDomain: item.location,
+                        email: item.email,
+                        notes: item.content,
+                        images: item.images || [],
+                        status: item.status,
+                        submitTime: new Date(item.created_at).toLocaleString('zh-CN')
+                    }));
+                    
+                    // 合并云端数据和本地数据
+                    const localRequests = JSON.parse(localStorage.getItem('massRequests') || '[]');
+                    const allRequests = [...cloudRequests];
+                    
+                    // 添加本地独有的数据
+                    localRequests.forEach(localReq => {
+                        if (!allRequests.some(cloudReq => cloudReq.id === localReq.id)) {
+                            allRequests.push(localReq);
+                        }
+                    });
+                    
+                    requests = allRequests;
+                    console.log(`[DEBUG] 合并后总共 ${requests.length} 个请求`);
+                }
+                
+                // 加载事件数据
+                console.log('[DEBUG] 加载events数据...');
+                const { data: eventsData, error: eventsError } = await supabase
+                    .from('events')
+                    .select('*')
+                    .order('date', { ascending: true });
+                
+                if (eventsError) {
+                    console.log('[DEBUG] 加载events失败:', eventsError);
+                } else if (eventsData && eventsData.length > 0) {
+                    console.log(`[DEBUG] 从云端加载到 ${eventsData.length} 个事件`);
+                    
+                    const cloudEvents = eventsData.map(item => ({
+                        id: item.id,
+                        title: item.title,
+                        date: item.date,
+                        target: item.title.split(' - ')[2] || 'unknown',
+                        arc: item.title.split(' - ')[0] || 'N/A',
+                        cohort: item.title.split(' - ')[1] || 'N/A',
+                        content: item.content,
+                        submitter: item.contact,
+                        teamDomain: item.location,
+                        notes: item.content,
+                        images: item.images || []
+                    }));
+                    
+                    const localEvents = JSON.parse(localStorage.getItem('approvedEvents') || '[]');
+                    const allEvents = [...cloudEvents];
+                    
+                    localEvents.forEach(localEvent => {
+                        if (!allEvents.some(cloudEvent => cloudEvent.id === localEvent.id)) {
+                            allEvents.push(localEvent);
+                        }
+                    });
+                    
+                    approvedEvents = allEvents;
+                    console.log(`[DEBUG] 合并后总共 ${approvedEvents.length} 个事件`);
+                }
+                
+                console.log('[DEBUG] 云端数据加载完成，刷新界面...');
+                
+                // 刷新界面
+                generateCalendar();
+                loadPendingRequests();
+                
+            } catch (error) {
+                console.error('[DEBUG] 加载云端数据异常:', error);
             }
         }
         
