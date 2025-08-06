@@ -1319,7 +1319,10 @@
                 collaborationEnabled = true;
                 
                 console.log('[COLLAB] 协同功能启用成功');
-                updateCollabStatus('✅ 协同功能已启用 - 支持多人实时协作', 'success');
+                updateCollabStatus('✅ 协同功能已启用 - 正在设置实时同步...', 'success');
+                
+                // 设置实时同步
+                setupRealtimeSync();
                 
                 // 自动加载云端数据
                 setTimeout(() => {
@@ -1439,19 +1442,98 @@
             }
         }
         
-        // 显示调试信息
-        function showDebugInfo() {
-            const info = `协同功能: ${collaborationEnabled ? '已启用' : '未启用'}
-Supabase: ${supabase ? '已连接' : '未连接'}
-请求数量: ${requests.length}
-事件数量: ${approvedEvents.length}`;
+        // 保存审核状态到云端
+        async function saveApprovalToCloud(requestId, status, reason = '') {
+            if (!collaborationEnabled || !supabase) {
+                console.log('[APPROVAL] 协同功能未启用，跳过云端保存');
+                return false;
+            }
             
-            console.log('=== 调试信息 ===');
-            console.log(info);
-            console.log('请求数据:', requests);
-            console.log('事件数据:', approvedEvents);
+            console.log(`[APPROVAL] 保存审核状态到云端: ${requestId} -> ${status}`);
             
-            alert(info);
+            try {
+                const updateData = {
+                    status: status,
+                    updated_at: new Date().toISOString()
+                };
+                
+                if (reason) {
+                    updateData.rejection_reason = reason;
+                }
+                
+                const { error } = await supabase
+                    .from('requests')
+                    .update(updateData)
+                    .eq('id', requestId);
+                
+                if (error) {
+                    console.error('[APPROVAL] 保存审核状态失败:', error);
+                    return false;
+                }
+                
+                console.log('[APPROVAL] 审核状态已同步到云端');
+                return true;
+                
+            } catch (error) {
+                console.error('[APPROVAL] 保存审核状态异常:', error);
+                return false;
+            }
+        }
+        
+        // 设置实时数据监听
+        function setupRealtimeSync() {
+            if (!collaborationEnabled || !supabase) {
+                console.log('[REALTIME] 协同功能未启用，跳过实时同步设置');
+                return;
+            }
+            
+            console.log('[REALTIME] 设置实时数据同步...');
+            
+            // 监听requests表变化
+            supabase
+                .channel('requests_changes')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'requests' }, 
+                    (payload) => {
+                        console.log('[REALTIME] 检测到请求数据变化:', payload);
+                        handleRequestChange(payload);
+                    }
+                )
+                .subscribe();
+            
+            // 监听events表变化
+            supabase
+                .channel('events_changes')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'events' }, 
+                    (payload) => {
+                        console.log('[REALTIME] 检测到事件数据变化:', payload);
+                        handleEventChange(payload);
+                    }
+                )
+                .subscribe();
+                
+            updateCollabStatus('✅ 协同功能已启用 - 支持实时同步', 'success');
+        }
+        
+        // 处理请求数据变化
+        function handleRequestChange(payload) {
+            console.log('[REALTIME] 处理请求变化:', payload.eventType);
+            
+            // 延迟刷新，避免频繁更新
+            setTimeout(() => {
+                loadCloudData();
+            }, 1000);
+        }
+        
+        // 处理事件数据变化
+        function handleEventChange(payload) {
+            console.log('[REALTIME] 处理事件变化:', payload.eventType);
+            
+            // 延迟刷新，避免频繁更新
+            setTimeout(() => {
+                loadCloudData();
+            }, 1000);
         }
         let selectedImages = [];
         let currentFilter = 'all';
@@ -2760,7 +2842,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         }
 
         // 审核通过循环组
-        function approveRecurringGroup(groupId) {
+        async function approveRecurringGroup(groupId) {
             const groupRequests = requests.filter(req => 
                 (req.recurringGroup && req.recurringGroup.toString() === groupId.toString()) || 
                 (req.id.toString() === groupId.toString())
@@ -2770,13 +2852,25 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             
             const approveTime = new Date().toLocaleString('zh-CN');
             
-            groupRequests.forEach(request => {
+            // 显示处理中状态
+            updateCollabStatus('🔄 正在处理审核请求...', 'info');
+            
+            for (const request of groupRequests) {
                 if (request.status === 'pending') {
                     request.status = 'approved';
                     request.approveTime = approveTime;
                     
+                    // 同步审核状态到云端
+                    const cloudSyncSuccess = await saveApprovalToCloud(request.id, 'approved');
+                    
+                    if (cloudSyncSuccess) {
+                        console.log(`[APPROVE] 请求 ${request.id} 审核状态已同步到云端`);
+                    } else {
+                        console.warn(`[APPROVE] 请求 ${request.id} 云端同步失败，仅保存在本地`);
+                    }
+                    
                     // 添加到已批准事件列表
-                    approvedEvents.push({
+                    const approvedEvent = {
                         id: request.id,
                         title: `${request.arc || 'N/A'}-${request.cohort || 'N/A'}: ${request.content.substring(0, 30)}...`,
                         date: request.sendDate,
@@ -2786,6 +2880,38 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         content: request.content,
                         submitter: request.submitter,
                         teamDomain: request.teamDomain,
+                        notes: request.notes,
+                        images: request.images || []
+                    };
+                    
+                    approvedEvents.push(approvedEvent);
+                    
+                    // 同时保存事件到云端
+                    if (collaborationEnabled && supabase) {
+                        const cloudEventData = {
+                            title: `${request.arc} - ${request.cohort} - ${request.target}`,
+                            content: request.content,
+                            date: request.sendDate,
+                            time: '09:00:00',
+                            location: request.teamDomain || 'Online',
+                            contact: request.submitter,
+                            email: request.email,
+                            images: request.images || []
+                        };
+                        
+                        try {
+                            const { error } = await supabase.from('events').insert([cloudEventData]);
+                            if (error) {
+                                console.warn('[APPROVE] 事件云端保存失败:', error);
+                            } else {
+                                console.log('[APPROVE] 事件已同步到云端');
+                            }
+                        } catch (error) {
+                            console.warn('[APPROVE] 事件云端保存异常:', error);
+                        }
+                    }
+                }
+            }
                         notes: request.notes,
                         images: request.images || []
                     });
@@ -2807,7 +2933,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         }
 
         // 拒绝循环组
-        function rejectRecurringGroup(groupId) {
+        async function rejectRecurringGroup(groupId) {
             const reason = prompt('请输入拒绝原因：');
             if (!reason) return;
             
@@ -2820,17 +2946,37 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             
             const rejectTime = new Date().toLocaleString('zh-CN');
             
-            groupRequests.forEach(request => {
+            // 显示处理中状态
+            updateCollabStatus('🔄 正在处理拒绝请求...', 'info');
+            
+            for (const request of groupRequests) {
                 if (request.status === 'pending') {
                     request.status = 'rejected';
                     request.rejectReason = reason;
                     request.rejectTime = rejectTime;
+                    
+                    // 同步拒绝状态到云端
+                    const cloudSyncSuccess = await saveApprovalToCloud(request.id, 'rejected', reason);
+                    
+                    if (cloudSyncSuccess) {
+                        console.log(`[REJECT] 请求 ${request.id} 拒绝状态已同步到云端`);
+                    } else {
+                        console.warn(`[REJECT] 请求 ${request.id} 云端同步失败，仅保存在本地`);
+                    }
                 }
-            });
+            }
             
+            // 更新本地存储
             localStorage.setItem('massRequests', JSON.stringify(requests));
+            
+            // 刷新界面
             loadPendingRequests();
-            generateCalendar(); // 重新生成日历以移除被拒绝的请求
+            generateCalendar();
+            
+            // 恢复状态显示
+            if (collaborationEnabled) {
+                updateCollabStatus('✅ 协同功能已启用 - 支持实时同步', 'success');
+            }
             
             const message = groupRequests.length > 1 
                 ? `循环需求已拒绝！共拒绝 ${groupRequests.length} 个发送任务。`
@@ -3558,6 +3704,25 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         }
 
         // 添加键盘快捷键用于调试
+        // 显示调试信息
+        function showDebugInfo() {
+            const info = `协同功能: ${collaborationEnabled ? '已启用' : '未启用'}
+Supabase: ${supabase ? '已连接' : '未连接'}
+实时同步: ${collaborationEnabled ? '已启用' : '未启用'}
+请求数量: ${requests.length}
+事件数量: ${approvedEvents.length}
+待审核: ${requests.filter(r => r.status === 'pending').length}
+已批准: ${requests.filter(r => r.status === 'approved').length}
+已拒绝: ${requests.filter(r => r.status === 'rejected').length}`;
+            
+            console.log('=== 调试信息 ===');
+            console.log(info);
+            console.log('请求数据:', requests);
+            console.log('事件数据:', approvedEvents);
+            
+            alert(info);
+        }
+
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey && e.shiftKey && e.key === 'D') {
                 debugDateHandling();
