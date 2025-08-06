@@ -2710,17 +2710,22 @@
                     
                     // 同时保存到云端
                     if (collaborationEnabled && supabase) {
+                        console.log('[DEBUG] 准备保存批准事件到云端...');
+                        console.log('[DEBUG] 原始请求数据:', request);
+                        
                         const cloudEventData = {
                             request_id: request.id,
-                            title: `${request.arc} - ${request.cohort} - ${request.target}`,
-                            content: request.content,
+                            title: `${request.arc || 'N/A'} - ${request.cohort || 'N/A'} - ${request.target || 'unknown'}`,
+                            content: request.content || request.notes || '无内容',
                             date: request.sendDate,
                             time: '09:00:00',
                             location: request.teamDomain || 'Online',
-                            contact: request.submitter,
-                            email: request.email,
+                            contact: request.submitter || '未知提交者',
+                            email: request.email || 'no-email@example.com',
                             images: request.images || []
                         };
+                        
+                        console.log('[DEBUG] 准备保存的事件数据:', cloudEventData);
                         
                         saveToCloud(cloudEventData, 'events').then(success => {
                             if (success) {
@@ -2728,7 +2733,11 @@
                             } else {
                                 console.warn('⚠️ 事件云端同步失败');
                             }
+                        }).catch(error => {
+                            console.error('❌ 事件云端保存异常:', error);
                         });
+                    } else {
+                        console.log('[DEBUG] 协同功能未启用，跳过事件云端保存');
                     }
                 }
             });
