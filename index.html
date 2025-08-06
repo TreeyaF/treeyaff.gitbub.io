@@ -3,27 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCM Blurb 提报 - 协同合作版</title>
-    
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    
+    <title>OCM Blurb 协同合作系统</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
-        /* 保持原有样式 */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -32,80 +21,71 @@
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             overflow: hidden;
         }
-
         .header {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            background: linear-gradient(135deg, #3ecf8e, #2dd4bf);
             color: white;
             padding: 30px;
             text-align: center;
         }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-
-        .firebase-config {
-            background: #f8f9fa;
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .config-area {
+            background: #f0fdf4;
             padding: 20px;
             margin: 20px;
             border-radius: 10px;
-            border-left: 4px solid #007bff;
+            border-left: 4px solid #10b981;
         }
-
         .config-input {
             width: 100%;
-            padding: 10px;
-            margin: 5px 0;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
         }
-
         .btn {
-            background: #007bff;
+            background: #10b981;
             color: white;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
-            margin: 5px;
+            margin: 8px 4px;
+            font-size: 16px;
         }
-
-        .btn:hover {
-            background: #0056b3;
-        }
-
+        .btn:hover { background: #059669; }
         .status {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 8px;
+            font-weight: 500;
         }
-
         .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
         }
-
         .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
         }
-
-        .hidden {
-            display: none;
+        .hidden { display: none; }
+        .main-app {
+            padding: 30px;
+            text-align: center;
         }
-
-        .main-content {
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature-card {
+            background: white;
             padding: 20px;
-        }
-
-        .setup-guide {
-            background: #e3f2fd;
-            padding: 20px;
-            margin: 20px 0;
             border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-left: 4px solid #10b981;
         }
     </style>
 </head>
@@ -113,183 +93,153 @@
     <div class="container">
         <div class="header">
             <h1>🤝 OCM Blurb 协同合作系统</h1>
-            <p>支持全球实时协作的Mass Community管理平台</p>
+            <p>支持多人实时协作的Mass Community管理平台</p>
         </div>
 
-        <!-- Firebase配置区域 -->
-        <div id="firebaseSetup" class="firebase-config">
-            <h3>🔧 Firebase配置</h3>
-            <p>请配置Firebase以启用协同合作功能：</p>
+        <div id="setupArea" class="config-area">
+            <h3>🚀 快速开始</h3>
+            <p>你的Supabase已经配置好了，点击下面的按钮启动协同合作功能：</p>
             
-            <input type="text" id="apiKey" class="config-input" placeholder="Firebase API Key">
-            <input type="text" id="authDomain" class="config-input" placeholder="Auth Domain (project-id.firebaseapp.com)">
-            <input type="text" id="databaseURL" class="config-input" placeholder="Database URL (https://project-id-default-rtdb.firebaseio.com/)">
-            <input type="text" id="projectId" class="config-input" placeholder="Project ID">
+            <input type="url" id="supabaseUrl" class="config-input" 
+                   value="https://omgtzyavksgyemigxuwj.supabase.co" readonly>
+            <input type="password" id="supabaseKey" class="config-input" 
+                   value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tZ3R6eWF2a3NneWVtaWd4dXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NTA5ODgsImV4cCI6MjA3MDAyNjk4OH0.7F2VEtLYvOggT25fb6vD6fqoBmC2KJfdqLjSSNVL6lU" readonly>
             
-            <button class="btn" onclick="initializeFirebase()">连接Firebase</button>
-            <button class="btn" onclick="showSetupGuide()">查看设置指南</button>
+            <button class="btn" onclick="startCollaboration()">🔗 启动协同合作</button>
+            <button class="btn" onclick="loadFullApp()" style="background: #6366f1;">🚀 加载完整应用</button>
             
-            <div id="connectionStatus"></div>
+            <div id="status"></div>
         </div>
 
-        <!-- 设置指南 -->
-        <div id="setupGuide" class="setup-guide hidden">
-            <h3>📚 Firebase设置指南</h3>
-            <ol>
-                <li>访问 <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a></li>
-                <li>创建新项目或选择现有项目</li>
-                <li>在项目设置中找到"您的应用"部分</li>
-                <li>点击"Web应用"图标添加应用</li>
-                <li>复制配置信息到上面的输入框</li>
-                <li>在"Realtime Database"中创建数据库</li>
-                <li>设置数据库规则为测试模式（临时）</li>
-            </ol>
-            <p><strong>数据库规则示例：</strong></p>
-            <pre>{
-  "rules": {
-    ".read": true,
-    ".write": true
-  }
-}</pre>
-            <p><em>注意：生产环境请设置适当的安全规则</em></p>
-        </div>
-
-        <!-- 主要内容区域 -->
-        <div id="mainContent" class="main-content hidden">
-            <h2>🎉 Firebase连接成功！</h2>
-            <p>协同合作功能已启用，现在可以开始使用了。</p>
+        <div id="mainApp" class="main-app hidden">
+            <h2>🎉 协同合作系统已启动！</h2>
             
-            <!-- 这里会加载原有的Mass Community界面 -->
-            <div id="appContent">
-                <p>正在加载应用界面...</p>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>📊 实时数据同步</h4>
+                    <p>所有操作实时同步到云端，团队成员立即看到更新</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔒 数据安全</h4>
+                    <p>PostgreSQL数据库，企业级安全保障</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🌍 全球访问</h4>
+                    <p>部署到GitHub Pages，全球任何地方都能访问</p>
+                </div>
+                <div class="feature-card">
+                    <h4>💰 完全免费</h4>
+                    <p>Supabase免费版 + GitHub Pages，零成本运行</p>
+                </div>
             </div>
+
+            <div class="status success">
+                <strong>✅ 准备就绪！</strong> 现在可以：
+                <ul style="text-align: left; margin: 10px 0; margin-left: 20px;">
+                    <li>将此文件上传到GitHub Pages</li>
+                    <li>分享网址给团队成员</li>
+                    <li>开始协同工作</li>
+                </ul>
+            </div>
+
+            <button class="btn" onclick="showDeployGuide()">📚 查看部署指南</button>
+            <button class="btn" onclick="testDatabase()">🧪 测试数据库</button>
+        </div>
+
+        <div id="deployGuide" class="config-area hidden">
+            <h3>📚 GitHub Pages部署指南</h3>
+            <ol style="text-align: left; line-height: 1.8;">
+                <li><strong>上传文件</strong>: 将此 index.html 文件上传到你的GitHub仓库根目录</li>
+                <li><strong>启用Pages</strong>: 仓库设置 → Pages → 选择main分支</li>
+                <li><strong>访问网站</strong>: https://treeyaf.github.io/treeyaff.github.io/</li>
+                <li><strong>分享协作</strong>: 将网址分享给团队成员</li>
+                <li><strong>开始使用</strong>: 所有人都可以实时协作</li>
+            </ol>
+            <p><strong>🎯 完成后，你将拥有一个全球可访问的协同合作平台！</strong></p>
         </div>
     </div>
 
     <script>
-        let firebaseApp = null;
-        let database = null;
-        let requests = [];
-        let approvedEvents = [];
+        let supabase = null;
 
-        // 显示设置指南
-        function showSetupGuide() {
-            const guide = document.getElementById('setupGuide');
-            guide.classList.toggle('hidden');
+        async function startCollaboration() {
+            const url = document.getElementById('supabaseUrl').value;
+            const key = document.getElementById('supabaseKey').value;
+
+            showStatus('🔄 正在连接Supabase...', 'info');
+
+            try {
+                supabase = window.supabase.createClient(url, key);
+                
+                if (supabase) {
+                    showStatus('✅ 协同合作已启动！数据库连接成功', 'success');
+                    
+                    setTimeout(() => {
+                        document.getElementById('setupArea').classList.add('hidden');
+                        document.getElementById('mainApp').classList.remove('hidden');
+                    }, 2000);
+                }
+            } catch (error) {
+                showStatus('❌ 连接失败: ' + error.message, 'error');
+            }
         }
 
-        // 初始化Firebase
-        function initializeFirebase() {
-            const apiKey = document.getElementById('apiKey').value;
-            const authDomain = document.getElementById('authDomain').value;
-            const databaseURL = document.getElementById('databaseURL').value;
-            const projectId = document.getElementById('projectId').value;
+        function loadFullApp() {
+            window.location.href = 'mass_community_full_collaborative.html';
+        }
 
-            if (!apiKey || !authDomain || !databaseURL || !projectId) {
-                showStatus('请填写所有Firebase配置信息', 'error');
+        function showDeployGuide() {
+            document.getElementById('deployGuide').classList.toggle('hidden');
+        }
+
+        async function testDatabase() {
+            if (!supabase) {
+                showStatus('请先启动协同合作', 'error');
                 return;
             }
 
-            const firebaseConfig = {
-                apiKey: apiKey,
-                authDomain: authDomain,
-                databaseURL: databaseURL,
-                projectId: projectId
-            };
-
             try {
-                // 初始化Firebase
-                firebaseApp = firebase.initializeApp(firebaseConfig);
-                database = firebase.database();
+                const testData = {
+                    title: '测试 - 请求 - 协同',
+                    content: '这是一个测试请求，验证协同合作功能',
+                    date: '2025-08-10',
+                    time: '10:00:00',
+                    location: '测试地点',
+                    contact: '测试用户',
+                    email: 'test@example.com'
+                };
 
-                // 测试连接
-                database.ref('.info/connected').on('value', (snapshot) => {
-                    if (snapshot.val() === true) {
-                        showStatus('✅ Firebase连接成功！协同合作功能已启用', 'success');
-                        
-                        // 保存配置到localStorage
-                        localStorage.setItem('firebaseConfig', JSON.stringify(firebaseConfig));
-                        
-                        // 显示主要内容
-                        setTimeout(() => {
-                            document.getElementById('firebaseSetup').classList.add('hidden');
-                            document.getElementById('mainContent').classList.remove('hidden');
-                            loadMainApp();
-                        }, 2000);
-                    } else {
-                        showStatus('❌ Firebase连接失败，请检查配置', 'error');
-                    }
-                });
+                const { data, error } = await supabase
+                    .from('requests')
+                    .insert([testData])
+                    .select();
 
+                if (error) throw error;
+
+                showStatus('✅ 数据库测试成功！协同功能正常工作', 'success');
+                
+                // 清理测试数据
+                if (data && data[0]) {
+                    await supabase.from('requests').delete().eq('id', data[0].id);
+                }
             } catch (error) {
-                showStatus('❌ Firebase初始化失败: ' + error.message, 'error');
+                showStatus('❌ 测试失败: ' + error.message, 'error');
             }
         }
 
-        // 显示状态信息
         function showStatus(message, type) {
-            const statusDiv = document.getElementById('connectionStatus');
+            const statusDiv = document.getElementById('status');
+            const colors = {
+                success: '#d1fae5',
+                error: '#fee2e2',
+                info: '#dbeafe'
+            };
             statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
         }
 
-        // 加载主应用
-        function loadMainApp() {
-            const appContent = document.getElementById('appContent');
-            appContent.innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <h3>🚀 协同合作系统已就绪</h3>
-                    <p>Firebase数据库连接成功，现在支持实时协作！</p>
-                    <br>
-                    <p><strong>下一步：</strong></p>
-                    <p>1. 将完整的Mass Community界面集成到这里</p>
-                    <p>2. 替换localStorage为Firebase Realtime Database</p>
-                    <p>3. 部署到GitHub Pages</p>
-                    <br>
-                    <button class="btn" onclick="testFirebase()">测试Firebase功能</button>
-                </div>
-            `;
-        }
-
-        // 测试Firebase功能
-        function testFirebase() {
-            if (!database) {
-                showStatus('Firebase未初始化', 'error');
-                return;
-            }
-
-            // 写入测试数据
-            const testData = {
-                timestamp: Date.now(),
-                message: '测试协同合作功能',
-                user: 'test-user'
-            };
-
-            database.ref('test').push(testData).then(() => {
-                showStatus('✅ Firebase写入测试成功', 'success');
-                
-                // 读取测试数据
-                database.ref('test').limitToLast(1).on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    console.log('Firebase读取测试:', data);
-                    showStatus('✅ Firebase读写功能正常', 'success');
-                });
-            }).catch((error) => {
-                showStatus('❌ Firebase测试失败: ' + error.message, 'error');
-            });
-        }
-
-        // 页面加载时检查是否有保存的配置
+        // 页面加载时自动填充配置
         window.onload = function() {
-            const savedConfig = localStorage.getItem('firebaseConfig');
-            if (savedConfig) {
-                const config = JSON.parse(savedConfig);
-                document.getElementById('apiKey').value = config.apiKey || '';
-                document.getElementById('authDomain').value = config.authDomain || '';
-                document.getElementById('databaseURL').value = config.databaseURL || '';
-                document.getElementById('projectId').value = config.projectId || '';
-                
-                showStatus('发现保存的配置，可以直接点击"连接Firebase"', 'success');
-            }
+            showStatus('👋 欢迎使用协同合作系统！你的Supabase配置已就绪，点击启动即可开始。', 'info');
         };
     </script>
 </body>
