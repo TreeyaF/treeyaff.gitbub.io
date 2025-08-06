@@ -1031,6 +1031,12 @@
                 <button onclick="checkTableStructure()" style="background: #0891b2; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     📋 检查表结构
                 </button>
+                <button onclick="viewRequestsTable()" style="background: #ea580c; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    📝 查看Requests
+                </button>
+                <button onclick="viewEventsTable()" style="background: #16a34a; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    📅 查看Events
+                </button>
                 <button onclick="forceSaveTest()" style="background: #7c3aed; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     💾 强制保存
                 </button>
@@ -1955,6 +1961,92 @@
             });
             
             return statusCounts;
+        }
+        
+        // 查看requests表数据
+        async function viewRequestsTable() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法查看requests表');
+                return;
+            }
+            
+            try {
+                console.log('[VIEW] 开始查看requests表数据...');
+                updateCollabStatus('⏳ 正在查看requests表数据...', 'info');
+                
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                
+                if (error) {
+                    console.error('[VIEW] 查看requests表失败:', error);
+                    alert('❌ 查看requests表失败：' + error.message);
+                    return;
+                }
+                
+                console.log('[VIEW] requests表数据:', data);
+                
+                if (data && data.length > 0) {
+                    const summary = data.map((item, index) => {
+                        return `${index + 1}. ${item.title || 'N/A'} (${item.status || 'N/A'}) - ${item.date || 'N/A'}`;
+                    }).join('\n');
+                    
+                    alert(`📋 requests表数据 (最新10条)：\n\n${summary}\n\n总计：${data.length} 条记录\n\n详细信息请查看控制台日志。`);
+                } else {
+                    alert('📋 requests表当前为空\n\n可能的原因：\n1. 还没有提报过事件\n2. 所有请求都已被处理并清理\n3. 数据在其他表中');
+                }
+                
+                updateCollabStatus('✅ requests表查看完成', 'success');
+                
+            } catch (error) {
+                console.error('[VIEW] 查看requests表异常:', error);
+                alert('❌ 查看requests表异常：' + error.message);
+            }
+        }
+        
+        // 查看events表数据
+        async function viewEventsTable() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法查看events表');
+                return;
+            }
+            
+            try {
+                console.log('[VIEW] 开始查看events表数据...');
+                updateCollabStatus('⏳ 正在查看events表数据...', 'info');
+                
+                const { data, error } = await supabase
+                    .from('events')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                
+                if (error) {
+                    console.error('[VIEW] 查看events表失败:', error);
+                    alert('❌ 查看events表失败：' + error.message);
+                    return;
+                }
+                
+                console.log('[VIEW] events表数据:', data);
+                
+                if (data && data.length > 0) {
+                    const summary = data.map((item, index) => {
+                        return `${index + 1}. ${item.title || 'N/A'} - ${item.date || 'N/A'}`;
+                    }).join('\n');
+                    
+                    alert(`📅 events表数据 (最新10条)：\n\n${summary}\n\n总计：${data.length} 条记录\n\n详细信息请查看控制台日志。`);
+                } else {
+                    alert('📅 events表当前为空\n\n可能的原因：\n1. 还没有审核通过的事件\n2. 数据在requests表中等待审核');
+                }
+                
+                updateCollabStatus('✅ events表查看完成', 'success');
+                
+            } catch (error) {
+                console.error('[VIEW] 查看events表异常:', error);
+                alert('❌ 查看events表异常：' + error.message);
+            }
         }
         
         // 检查表结构
@@ -3856,6 +3948,10 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         } catch (error) {
                             console.warn('[APPROVE] 事件云端保存异常:', error);
                         }
+                        
+                        // 使用统一的方式更新云端requests表状态
+                        const statusSuccess = await saveApprovalToCloud(request.id, 'approved');
+                        console.log(`[APPROVE] 请求 ${request.id} 状态同步:`, statusSuccess ? '成功' : '失败');
                     }
                     
                     // 添加到本地已批准事件列表
