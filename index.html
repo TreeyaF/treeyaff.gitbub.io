@@ -1028,6 +1028,9 @@
                 <button onclick="testCloudConnection()" style="background: #059669; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🔗 测试连接
                 </button>
+                <button onclick="checkTableStructure()" style="background: #0891b2; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    📋 检查表结构
+                </button>
                 <button onclick="testPendingSave()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🧪 测试Pending
                 </button>
@@ -2110,6 +2113,49 @@
             }
         }
         
+        // 检查Supabase表结构
+        async function checkTableStructure() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法检查表结构');
+                return;
+            }
+            
+            try {
+                console.log('[STRUCTURE] 开始检查requests表结构');
+                updateCollabStatus('⏳ 正在检查表结构...', 'info');
+                
+                // 尝试获取一条记录来了解表结构
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .limit(1);
+                
+                if (error) {
+                    console.error('[STRUCTURE] 检查表结构失败:', error);
+                    alert('❌ 检查表结构失败：' + error.message);
+                    return;
+                }
+                
+                console.log('[STRUCTURE] 表结构示例数据:', data);
+                
+                if (data && data.length > 0) {
+                    const fields = Object.keys(data[0]);
+                    const fieldList = fields.map(field => `• ${field}: ${typeof data[0][field]}`).join('\n');
+                    
+                    alert(`📋 requests表结构检查完成！\n\n字段列表：\n${fieldList}\n\n注意：\n• 带有NOT NULL约束的字段必须提供值\n• 检查字段名称是否匹配\n• 确认数据类型是否正确`);
+                } else {
+                    // 表为空，尝试插入一个测试记录来发现必需字段
+                    alert('📋 requests表为空，无法获取字段信息\n\n建议：\n1. 先运行"🧪 测试Pending"来发现必需字段\n2. 或者在Supabase控制台查看表结构\n3. 确认所有NOT NULL字段都有默认值');
+                }
+                
+                updateCollabStatus('✅ 表结构检查完成', 'success');
+                
+            } catch (error) {
+                console.error('[STRUCTURE] 检查表结构异常:', error);
+                alert('❌ 检查表结构异常：' + error.message);
+            }
+        }
+        
         // 验证pending请求是否成功保存到云端
         async function verifyPendingSave(title) {
             if (!collaborationEnabled || !supabase) {
@@ -2200,9 +2246,11 @@
                 title: `测试Pending请求 - ${timestamp}`,
                 content: '这是一个测试的pending请求，用于验证多用户同步功能是否正常工作',
                 date: new Date().toISOString().split('T')[0],
+                time: '09:00:00', // 添加必需的time字段
                 status: 'pending',
                 contact: '测试用户',
                 email: 'test@example.com',
+                location: 'Online', // 添加location字段
                 created_at: new Date().toISOString()
             };
             
@@ -3892,9 +3940,11 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         title: `${request.arc} - ${request.cohort} - ${request.target}`,
                         content: request.content,
                         date: request.sendDate,
+                        time: '09:00:00', // 添加必需的time字段
                         status: 'pending',
                         contact: request.submitter,
                         email: request.email,
+                        location: request.teamDomain || 'Online', // 添加location字段
                         created_at: new Date().toISOString()
                     };
                     
@@ -5019,6 +5069,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         window.showTab = showTab;
         window.manualSync = manualSync;
         window.testCloudConnection = testCloudConnection;
+        window.checkTableStructure = checkTableStructure;
         window.testPendingSave = testPendingSave;
         window.checkPendingInCloud = checkPendingInCloud;
         window.verifyPendingSave = verifyPendingSave;
