@@ -1307,16 +1307,31 @@
             }
         }
         
-        // 保存到云端（简化版）
+        // 保存到云端（使用调试版本中验证有效的代码）
         async function saveToCloud(data, table) {
-            if (!collaborationEnabled || !supabase) return false;
+            console.log(`[DEBUG] 尝试保存到云端表: ${table}`);
+            console.log(`[DEBUG] 数据内容:`, data);
             
+            if (!collaborationEnabled || !supabase) {
+                console.log('[DEBUG] 协同功能未启用，跳过云端保存');
+                return false;
+            }
+
             try {
-                const { error } = await supabase.from(table).insert([data]);
-                if (error) throw error;
-                return true;
+                console.log('[DEBUG] 执行插入操作...');
+                const { data: result, error } = await supabase.from(table).insert([data]).select();
+                
+                if (error) {
+                    console.log('[DEBUG] 云端保存失败:', error.message);
+                    console.log('[DEBUG] 错误详情:', error);
+                    return false;
+                } else {
+                    console.log('[DEBUG] 云端保存成功!');
+                    console.log('[DEBUG] 返回数据:', result);
+                    return true;
+                }
             } catch (error) {
-                console.warn('云端保存失败:', error);
+                console.log('[DEBUG] 云端保存异常:', error.message);
                 return false;
             }
         }
@@ -2554,8 +2569,13 @@
                 
                 requests.push(request);
                 
+                console.log('[DEBUG] 请求已添加到本地数组，开始云端保存流程');
+                console.log('[DEBUG] collaborationEnabled:', collaborationEnabled);
+                console.log('[DEBUG] supabase存在:', !!supabase);
+                
                 // 同时保存到云端
                 if (collaborationEnabled && supabase) {
+                    console.log('[DEBUG] 准备云端数据...');
                     const cloudData = {
                         title: `${request.arc} - ${request.cohort} - ${request.target}`,
                         content: request.content,
@@ -2568,13 +2588,19 @@
                         status: 'pending'
                     };
                     
+                    console.log('[DEBUG] 云端数据准备完成，开始保存...');
+                    
                     saveToCloud(cloudData, 'requests').then(success => {
                         if (success) {
                             console.log('✅ 请求已同步到云端');
                         } else {
                             console.warn('⚠️ 云端同步失败，数据仅保存在本地');
                         }
+                    }).catch(error => {
+                        console.error('❌ 云端保存异常:', error);
                     });
+                } else {
+                    console.log('[DEBUG] 协同功能未启用或Supabase不可用，跳过云端保存');
                 }
             });
             
