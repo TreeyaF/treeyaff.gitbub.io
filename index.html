@@ -1028,6 +1028,9 @@
                 <button onclick="testCloudConnection()" style="background: #059669; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🔗 测试连接
                 </button>
+                <button onclick="checkTableStructure()" style="background: #0891b2; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    📋 检查表结构
+                </button>
                 <button onclick="forceSaveTest()" style="background: #7c3aed; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     💾 强制保存
                 </button>
@@ -1954,6 +1957,49 @@
             return statusCounts;
         }
         
+        // 检查表结构
+        async function checkTableStructure() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法检查表结构');
+                return;
+            }
+            
+            try {
+                console.log('[STRUCTURE] 开始检查表结构...');
+                updateCollabStatus('⏳ 正在检查表结构...', 'info');
+                
+                // 尝试获取requests表的所有字段
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .limit(1);
+                
+                if (error) {
+                    console.error('[STRUCTURE] 表结构检查失败:', error);
+                    alert('❌ 表结构检查失败：' + error.message);
+                    return;
+                }
+                
+                console.log('[STRUCTURE] requests表结构示例:', data);
+                
+                // 显示表结构信息
+                if (data && data.length > 0) {
+                    const fields = Object.keys(data[0]);
+                    console.log('[STRUCTURE] requests表字段:', fields);
+                    alert(`📋 requests表结构检查完成！\n\n字段列表：\n${fields.map(field => `• ${field}`).join('\n')}`);
+                } else {
+                    console.log('[STRUCTURE] requests表为空，无法获取字段信息');
+                    alert('📋 requests表为空，无法获取字段信息。\n建议先添加一条测试数据。');
+                }
+                
+                updateCollabStatus('✅ 表结构检查完成', 'success');
+                
+            } catch (error) {
+                console.error('[STRUCTURE] 表结构检查异常:', error);
+                alert('❌ 表结构检查异常：' + error.message);
+            }
+        }
+        
         // 强制保存测试数据到云端
         async function forceSaveTest() {
             if (!collaborationEnabled || !supabase) {
@@ -1961,16 +2007,11 @@
                 return;
             }
             
+            // 使用最简单的数据结构进行测试
             const testData = {
-                id: `test_${Date.now()}`,
-                title: '测试数据',
+                title: '测试数据 - ' + new Date().toLocaleString('zh-CN'),
                 content: '这是一个测试数据，用于验证云端保存功能',
                 date: new Date().toISOString().split('T')[0],
-                time: '09:00:00',
-                location: 'Test Location',
-                contact: 'Test User',
-                email: 'test@example.com',
-                images: [],
                 status: 'pending'
             };
             
@@ -1985,12 +2026,13 @@
                 
                 if (error) {
                     console.error('[FORCE_TEST] 强制保存失败:', error);
+                    console.error('[FORCE_TEST] 失败的数据:', testData);
                     updateCollabStatus('❌ 强制保存测试失败', 'error');
-                    alert('❌ 强制保存测试失败：' + error.message);
+                    alert(`❌ 强制保存测试失败：\n\n错误信息：${error.message}\n\n建议：\n1. 检查Supabase表结构\n2. 确认字段名称匹配\n3. 检查数据类型是否正确`);
                 } else {
                     console.log('[FORCE_TEST] 强制保存成功:', data);
                     updateCollabStatus('✅ 强制保存测试成功', 'success');
-                    alert('✅ 强制保存测试成功！请检查Supabase控制台。');
+                    alert('✅ 强制保存测试成功！\n\n请登录Supabase控制台查看新增的测试数据。\n\n数据内容：' + testData.title);
                 }
                 
             } catch (error) {
@@ -2013,21 +2055,41 @@
             try {
                 updateCollabStatus('⏳ 正在测试云端连接...', 'info');
                 
-                // 测试读取数据
-                const { data, error } = await supabase
+                // 1. 测试requests表连接
+                console.log('[TEST] 测试requests表连接...');
+                const { data: requestsData, error: requestsError } = await supabase
                     .from('requests')
-                    .select('count(*)')
+                    .select('id')
                     .limit(1);
                 
-                if (error) {
-                    console.error('[TEST] 云端连接测试失败:', error);
-                    updateCollabStatus('❌ 云端连接测试失败', 'error');
-                    alert('❌ 云端连接测试失败：' + error.message);
-                } else {
-                    console.log('[TEST] 云端连接测试成功:', data);
-                    updateCollabStatus('✅ 云端连接正常', 'success');
-                    alert('✅ 云端连接测试成功！可以正常保存数据。');
+                if (requestsError) {
+                    console.error('[TEST] requests表连接失败:', requestsError);
+                    updateCollabStatus('❌ requests表连接失败', 'error');
+                    alert('❌ requests表连接失败：' + requestsError.message);
+                    return;
                 }
+                
+                // 2. 测试events表连接
+                console.log('[TEST] 测试events表连接...');
+                const { data: eventsData, error: eventsError } = await supabase
+                    .from('events')
+                    .select('id')
+                    .limit(1);
+                
+                if (eventsError) {
+                    console.error('[TEST] events表连接失败:', eventsError);
+                    updateCollabStatus('❌ events表连接失败', 'error');
+                    alert('❌ events表连接失败：' + eventsError.message);
+                    return;
+                }
+                
+                // 3. 测试成功
+                console.log('[TEST] 云端连接测试成功');
+                console.log('[TEST] requests表数据:', requestsData);
+                console.log('[TEST] events表数据:', eventsData);
+                
+                updateCollabStatus('✅ 云端连接正常', 'success');
+                alert(`✅ 云端连接测试成功！\n\n📊 数据统计：\n• requests表：${requestsData ? requestsData.length : 0} 条记录\n• events表：${eventsData ? eventsData.length : 0} 条记录\n\n可以正常保存数据。`);
                 
             } catch (error) {
                 console.error('[TEST] 云端连接测试异常:', error);
