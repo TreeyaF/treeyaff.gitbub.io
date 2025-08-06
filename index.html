@@ -1413,23 +1413,20 @@
         function initPermissionSystem() {
             console.log('[PERMISSION] 初始化权限系统');
             
-            // 从本地存储加载用户角色和认证状态
-            const savedRole = localStorage.getItem('userRole');
-            const savedAuth = localStorage.getItem('ocmAuth');
+            // 强制设置默认角色为Requestor
+            currentUserRole = 'requestor';
+            isOCMAuthenticated = false;
             
-            if (savedRole && ROLES[savedRole]) {
-                currentUserRole = savedRole;
-                document.getElementById('userRole').value = savedRole;
-                
-                if (savedRole === 'ocm_poc' && savedAuth === 'true') {
-                    isOCMAuthenticated = true;
-                }
-            }
+            // 清除可能存在的旧认证状态
+            localStorage.removeItem('ocmAuth');
+            
+            // 设置选择框为默认值
+            document.getElementById('userRole').value = 'requestor';
             
             // 更新界面
             updateUIForRole();
             
-            console.log(`[PERMISSION] 当前用户角色: ${currentUserRole}, OCM认证: ${isOCMAuthenticated}`);
+            console.log(`[PERMISSION] 默认用户角色: ${currentUserRole}`);
         }
         
         // 协同功能变量
@@ -2633,6 +2630,14 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 let dayEvents = approvedEvents.filter(event => event.date === dateStr);
                 let pendingEvents = requests.filter(req => req.status === 'pending' && req.sendDate === dateStr);
                 
+                // 去重处理，防止重复显示
+                dayEvents = dayEvents.filter((event, index, self) => 
+                    index === self.findIndex(e => e.id === event.id)
+                );
+                pendingEvents = pendingEvents.filter((event, index, self) => 
+                    index === self.findIndex(e => e.id === event.id)
+                );
+                
                 // 根据筛选条件过滤已批准事件
                 if (currentFilter !== 'all') {
                     dayEvents = dayEvents.filter(event => eventMatchesFilter(event, currentFilter));
@@ -2676,7 +2681,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 
                 // 显示待审核的事件（灰色）
                 pendingEvents.forEach(event => {
-                    const title = `${event.arc}-${event.cohort}: ${event.content.substring(0, 20)}...`;
+                    const title = `${event.arc}-${event.cohort}：${event.content.substring(0, 20)}...`;
                     
                     eventsHTML += `
                         <div class="event pending-event" title="待审核：${event.content}">
@@ -2808,6 +2813,23 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         document.getElementById('requestForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // 防止重复提交
+            const submitButton = this.querySelector('button[type="submit"]');
+            if (submitButton.disabled) {
+                console.log('[SUBMIT] 防止重复提交');
+                return;
+            }
+            
+            // 禁用提交按钮
+            submitButton.disabled = true;
+            submitButton.textContent = '提交中...';
+            
+            // 恢复按钮状态的函数
+            const restoreButton = () => {
+                submitButton.disabled = false;
+                submitButton.textContent = '提交需求';
+            };
+            
             const formData = new FormData(this);
             
             const arc = formData.get('arc');
@@ -2881,6 +2903,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 `;
                 
                 showCustomModal('无法提交需求', message);
+                restoreButton(); // 恢复按钮状态
                 return; // 阻止提交
             }
             
@@ -2943,6 +2966,9 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             document.getElementById('submitTime').textContent = new Date().toLocaleString('zh-CN');
             closeSubmitModal();
             document.getElementById('successModal').style.display = 'block';
+            
+            // 恢复提交按钮状态
+            restoreButton();
         });
 
         // 占位函数替换为完整实现
@@ -3053,7 +3079,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     // 添加到本地已批准事件列表
                     const approvedEvent = {
                         id: request.id,
-                        title: `${request.arc || 'N/A'}-${request.cohort || 'N/A'}: ${request.content.substring(0, 30)}...`,
+                        title: `${request.arc || 'N/A'}-${request.cohort || 'N/A'}：${request.content.substring(0, 20)}...`,
                         date: request.sendDate,
                         target: request.target ? request.target.toLowerCase() : 'unknown',
                         arc: request.arc,
