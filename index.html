@@ -2553,6 +2553,29 @@
                 };
                 
                 requests.push(request);
+                
+                // 同时保存到云端
+                if (collaborationEnabled && supabase) {
+                    const cloudData = {
+                        title: `${request.arc} - ${request.cohort} - ${request.target}`,
+                        content: request.content,
+                        date: request.sendDate,
+                        time: '09:00:00',
+                        location: request.teamDomain || 'Online',
+                        contact: request.submitter,
+                        email: request.email,
+                        images: request.images || [],
+                        status: 'pending'
+                    };
+                    
+                    saveToCloud(cloudData, 'requests').then(success => {
+                        if (success) {
+                            console.log('✅ 请求已同步到云端');
+                        } else {
+                            console.warn('⚠️ 云端同步失败，数据仅保存在本地');
+                        }
+                    });
+                }
             });
             
             localStorage.setItem('massRequests', JSON.stringify(requests));
@@ -2643,7 +2666,7 @@
                     request.approveTime = approveTime;
                     
                     // 添加到已批准事件列表
-                    approvedEvents.push({
+                    const approvedEvent = {
                         id: request.id,
                         title: `${request.arc || 'N/A'}-${request.cohort || 'N/A'}: ${request.content.substring(0, 30)}...`,
                         date: request.sendDate,
@@ -2655,7 +2678,32 @@
                         teamDomain: request.teamDomain,
                         notes: request.notes,
                         images: request.images || []
-                    });
+                    };
+                    
+                    approvedEvents.push(approvedEvent);
+                    
+                    // 同时保存到云端
+                    if (collaborationEnabled && supabase) {
+                        const cloudEventData = {
+                            request_id: request.id,
+                            title: `${request.arc} - ${request.cohort} - ${request.target}`,
+                            content: request.content,
+                            date: request.sendDate,
+                            time: '09:00:00',
+                            location: request.teamDomain || 'Online',
+                            contact: request.submitter,
+                            email: request.email,
+                            images: request.images || []
+                        };
+                        
+                        saveToCloud(cloudEventData, 'events').then(success => {
+                            if (success) {
+                                console.log('✅ 批准事件已同步到云端');
+                            } else {
+                                console.warn('⚠️ 事件云端同步失败');
+                            }
+                        });
+                    }
                 }
             });
             
