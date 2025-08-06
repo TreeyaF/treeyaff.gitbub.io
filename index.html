@@ -1341,8 +1341,29 @@
     <script>
         // 全局变量
         let currentDate = new Date();
-        let requests = JSON.parse(localStorage.getItem('massRequests') || '[]');
-        let approvedEvents = JSON.parse(localStorage.getItem('approvedEvents') || '[]');
+        let requests = [];
+        let approvedEvents = [];
+        
+        // 安全地初始化数据
+        try {
+            const savedRequests = localStorage.getItem('massRequests');
+            if (savedRequests) {
+                requests = JSON.parse(savedRequests);
+            }
+        } catch (error) {
+            console.warn('[INIT] 加载requests数据失败:', error);
+            localStorage.removeItem('massRequests');
+        }
+        
+        try {
+            const savedEvents = localStorage.getItem('approvedEvents');
+            if (savedEvents) {
+                approvedEvents = JSON.parse(savedEvents);
+            }
+        } catch (error) {
+            console.warn('[INIT] 加载events数据失败:', error);
+            localStorage.removeItem('approvedEvents');
+        }
         
         // 简化的权限系统
         let currentUserRole = 'requestor'; // 默认为Requestor
@@ -1714,6 +1735,9 @@
                 isRefreshing = false;
             }
         }
+        
+        // 确保函数在全局作用域中可用
+        window.manualSync = manualSync;
         
         // 保存审核状态到云端
         async function saveApprovalToCloud(requestId, status, reason = '') {
@@ -3139,6 +3163,9 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             
             console.log(`[TAB] 标签页切换完成: ${tabName}`);
         }
+        
+        // 确保函数在全局作用域中可用
+        window.showTab = showTab;
 
         // 全局的检查当前选择函数
         function checkCurrentSelection() {
@@ -3948,10 +3975,6 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         } catch (error) {
                             console.warn('[APPROVE] 事件云端保存异常:', error);
                         }
-                        
-                        // 使用统一的方式更新云端requests表状态
-                        const statusSuccess = await saveApprovalToCloud(request.id, 'approved');
-                        console.log(`[APPROVE] 请求 ${request.id} 状态同步:`, statusSuccess ? '成功' : '失败');
                     }
                     
                     // 添加到本地已批准事件列表
@@ -4817,6 +4840,22 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         });
 
         console.log('调试提示: 按 Ctrl+Shift+D 进行日期处理调试');
+        
+        // 确保所有关键函数在全局作用域中可用
+        window.showTab = showTab;
+        window.manualSync = manualSync;
+        window.testCloudConnection = testCloudConnection;
+        window.checkTableStructure = checkTableStructure;
+        window.viewRequestsTable = viewRequestsTable;
+        window.viewEventsTable = viewEventsTable;
+        window.forceSaveTest = forceSaveTest;
+        window.clearAllLocalData = clearAllLocalData;
+        window.checkDataStatus = checkDataStatus;
+        window.showDebugInfo = showDebugInfo;
+        window.clearCloudData = clearCloudData;
+        window.fullSystemReset = fullSystemReset;
+        
+        console.log('[INIT] 所有全局函数已注册');
     </script>
 </body>
 </html>
