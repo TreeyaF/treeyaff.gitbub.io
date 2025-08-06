@@ -1025,6 +1025,12 @@
                 <button onclick="manualSync()" style="background: #3b82f6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     ☁️ 手动同步
                 </button>
+                <button onclick="testCloudConnection()" style="background: #059669; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🔗 测试连接
+                </button>
+                <button onclick="forceSaveTest()" style="background: #7c3aed; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    💾 强制保存
+                </button>
                 <button onclick="clearAllLocalData()" style="background: #dc2626; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🗑️ 清理数据
                 </button>
@@ -1946,6 +1952,88 @@
             });
             
             return statusCounts;
+        }
+        
+        // 强制保存测试数据到云端
+        async function forceSaveTest() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法测试保存');
+                return;
+            }
+            
+            const testData = {
+                id: `test_${Date.now()}`,
+                title: '测试数据',
+                content: '这是一个测试数据，用于验证云端保存功能',
+                date: new Date().toISOString().split('T')[0],
+                time: '09:00:00',
+                location: 'Test Location',
+                contact: 'Test User',
+                email: 'test@example.com',
+                images: [],
+                status: 'pending'
+            };
+            
+            console.log('[FORCE_TEST] 准备强制保存测试数据:', testData);
+            
+            try {
+                updateCollabStatus('⏳ 正在强制保存测试数据...', 'info');
+                
+                const { data, error } = await supabase
+                    .from('requests')
+                    .insert([testData]);
+                
+                if (error) {
+                    console.error('[FORCE_TEST] 强制保存失败:', error);
+                    updateCollabStatus('❌ 强制保存测试失败', 'error');
+                    alert('❌ 强制保存测试失败：' + error.message);
+                } else {
+                    console.log('[FORCE_TEST] 强制保存成功:', data);
+                    updateCollabStatus('✅ 强制保存测试成功', 'success');
+                    alert('✅ 强制保存测试成功！请检查Supabase控制台。');
+                }
+                
+            } catch (error) {
+                console.error('[FORCE_TEST] 强制保存异常:', error);
+                updateCollabStatus('❌ 强制保存测试异常', 'error');
+                alert('❌ 强制保存测试异常：' + error.message);
+            }
+        }
+        
+        // 测试云端连接
+        async function testCloudConnection() {
+            console.log('[TEST] 开始测试云端连接');
+            
+            if (!collaborationEnabled || !supabase) {
+                console.error('[TEST] 协同功能未启用或Supabase未连接');
+                alert('❌ 协同功能未启用，无法测试云端连接');
+                return;
+            }
+            
+            try {
+                updateCollabStatus('⏳ 正在测试云端连接...', 'info');
+                
+                // 测试读取数据
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('count(*)')
+                    .limit(1);
+                
+                if (error) {
+                    console.error('[TEST] 云端连接测试失败:', error);
+                    updateCollabStatus('❌ 云端连接测试失败', 'error');
+                    alert('❌ 云端连接测试失败：' + error.message);
+                } else {
+                    console.log('[TEST] 云端连接测试成功:', data);
+                    updateCollabStatus('✅ 云端连接正常', 'success');
+                    alert('✅ 云端连接测试成功！可以正常保存数据。');
+                }
+                
+            } catch (error) {
+                console.error('[TEST] 云端连接测试异常:', error);
+                updateCollabStatus('❌ 云端连接测试异常', 'error');
+                alert('❌ 云端连接测试异常：' + error.message);
+            }
         }
         
         // 完全重置系统（本地+云端）
@@ -3455,6 +3543,8 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 
                 // 同时保存到云端
                 if (collaborationEnabled && supabase) {
+                    console.log('[SUBMIT] 协同功能已启用，准备保存到云端');
+                    
                     const cloudData = {
                         id: request.id, // 使用本地生成的唯一ID
                         title: `${request.arc} - ${request.cohort} - ${request.target}`,
@@ -3468,26 +3558,28 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         status: 'pending'
                     };
                     
-                    console.log(`[SUBMIT] 保存到云端:`, cloudData.id);
+                    console.log(`[SUBMIT] 准备保存到云端的数据:`, cloudData);
+                    console.log(`[SUBMIT] Supabase客户端状态:`, !!supabase);
                     
-                    // 使用upsert确保数据一致性，避免重复插入
+                    // 使用简单的insert方法，确保数据能正确保存
                     supabase.from('requests')
-                        .upsert([cloudData], { onConflict: 'id' })
-                        .then(({ error }) => {
+                        .insert([cloudData])
+                        .then(({ data, error }) => {
                             if (error) {
-                                console.warn(`[SUBMIT] 云端保存失败 (${request.id}):`, error);
-                                // 如果upsert失败，尝试普通插入
-                                return supabase.from('requests').insert([cloudData]);
-                            }
-                            return { error: null };
-                        })
-                        .then(({ error }) => {
-                            if (error) {
-                                console.error(`[SUBMIT] 云端保存彻底失败 (${request.id}):`, error);
+                                console.error(`[SUBMIT] 云端保存失败 (${request.id}):`, error);
+                                console.error('[SUBMIT] 失败的数据:', cloudData);
+                                console.error('[SUBMIT] 错误详情:', error.message, error.details);
                             } else {
-                                console.log(`[SUBMIT] 请求已成功同步到云端 (${request.id})`);
+                                console.log(`[SUBMIT] 请求已成功同步到云端 (${request.id}):`, data);
                             }
+                        })
+                        .catch((err) => {
+                            console.error(`[SUBMIT] 云端保存异常 (${request.id}):`, err);
                         });
+                } else {
+                    console.warn('[SUBMIT] 协同功能未启用或Supabase未连接');
+                    console.log('[SUBMIT] collaborationEnabled:', collaborationEnabled);
+                    console.log('[SUBMIT] supabase:', !!supabase);
                 }
             });
             
