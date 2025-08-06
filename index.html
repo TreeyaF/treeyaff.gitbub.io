@@ -1037,6 +1037,12 @@
                 <button onclick="viewEventsTable()" style="background: #16a34a; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     📅 查看Events
                 </button>
+                <button onclick="testPendingSave()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🧪 测试Pending
+                </button>
+                <button onclick="checkPendingSync()" style="background: #8b5cf6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🔍 检查同步
+                </button>
                 <button onclick="forceSaveTest()" style="background: #7c3aed; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     💾 强制保存
                 </button>
@@ -1554,27 +1560,53 @@
             updateCollabStatus('🔄 正在同步云端数据...');
             
             try {
-                // 加载请求数据
+                // 加载请求数据，特别关注pending状态
                 const { data: requestsData, error: requestsError } = await supabase
                     .from('requests')
                     .select('*')
                     .order('created_at', { ascending: false });
                 
-                if (requestsError) throw requestsError;
+                if (requestsError) {
+                    console.error('[CLOUD] 加载requests数据失败:', requestsError);
+                    throw requestsError;
+                }
                 
-                console.log(`[CLOUD] 加载到 ${requestsData.length} 个请求`);
+                console.log(`[CLOUD] 从云端加载到 ${requestsData.length} 个请求`);
+                console.log('[CLOUD] 请求数据详情:', requestsData);
+                
+                // 统计各状态的请求数量
+                const statusCount = {
+                    pending: requestsData.filter(r => r.status === 'pending').length,
+                    approved: requestsData.filter(r => r.status === 'approved').length,
+                    rejected: requestsData.filter(r => r.status === 'rejected').length
+                };
+                console.log('[CLOUD] 请求状态统计:', statusCount);
                 
                 // 转换数据格式以匹配原有结构
-                const cloudRequests = requestsData.map(item => ({
-                    id: item.id,
-                    content: item.content,
-                    arc: item.title.split(' - ')[0] || 'N/A',
-                    cohort: item.title.split(' - ')[1] || 'N/A',
-                    target: item.title.split(' - ')[2] || 'unknown',
-                    sendDate: item.date,
-                    submitter: item.contact,
-                    teamDomain: item.location,
-                    email: item.email,
+                const cloudRequests = requestsData.map(item => {
+                    // 解析title字段，提取arc, cohort, target信息
+                    const titleParts = (item.title || '').split(' - ');
+                    
+                    return {
+                        id: item.id || `cloud_${Date.now()}_${Math.random()}`,
+                        content: item.content || '',
+                        arc: titleParts[0] || 'N/A',
+                        cohort: titleParts[1] || 'N/A', 
+                        target: titleParts[2] || 'unknown',
+                        sendDate: item.date || new Date().toISOString().split('T')[0],
+                        submitter: item.contact || 'Unknown',
+                        teamDomain: item.location || 'Online',
+                        email: item.email || '',
+                        images: item.images || [],
+                        status: item.status || 'pending',
+                        submitTime: new Date(item.created_at || Date.now()).toLocaleString('zh-CN'),
+                        // 保留原始云端数据
+                        _cloudData: item
+                    };
+                });
+                
+                console.log(`[CLOUD] 转换后的请求数据:`, cloudRequests);
+                console.log(`[CLOUD] 其中pending请求:`, cloudRequests.filter(r => r.status === 'pending'));
                     notes: item.content,
                     images: [],
                     status: item.status,
@@ -2113,6 +2145,132 @@
             } catch (error) {
                 console.error('[STRUCTURE] 表结构检查异常:', error);
                 alert('❌ 表结构检查异常：' + error.message);
+            }
+        }
+        
+        // 检查pending同步状态
+        async function checkPendingSync() {
+            console.log('[PENDING_CHECK] 开始检查pending同步状态');
+            
+            // 1. 检查本地pending数据
+            const localPending = requests.filter(r => r.status === 'pending');
+            console.log('[PENDING_CHECK] 本地pending请求:', localPending.length, '个');
+            
+            if (!collaborationEnabled || !supabase) {
+                alert(`📊 Pending同步状态检查：\n\n本地pending请求：${localPending.length} 个\n云端检查：协同功能未启用\n\n建议：启用协同功能以检查云端状态`);
+                return;
+            }
+            
+            try {
+                updateCollabStatus('⏳ 正在检查pending同步状态...', 'info');
+                
+                // 2. 检查云端pending数据
+                const { data: cloudData, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .eq('status', 'pending')
+                    .order('created_at', { ascending: false });
+                
+                if (error) {
+                    console.error('[PENDING_CHECK] 云端pending检查失败:', error);
+                    alert('❌ 云端pending检查失败：' + error.message);
+                    return;
+                }
+                
+                console.log('[PENDING_CHECK] 云端pending请求:', cloudData.length, '个');
+                console.log('[PENDING_CHECK] 云端pending详情:', cloudData);
+                
+                // 3. 对比分析
+                const localIds = localPending.map(r => r.id);
+                const cloudIds = cloudData.map(r => r.id);
+                
+                const onlyLocal = localPending.filter(r => !cloudIds.includes(r.id));
+                const onlyCloud = cloudData.filter(r => !localIds.includes(r.id));
+                const synced = localPending.filter(r => cloudIds.includes(r.id));
+                
+                console.log('[PENDING_CHECK] 同步分析:', {
+                    onlyLocal: onlyLocal.length,
+                    onlyCloud: onlyCloud.length,
+                    synced: synced.length
+                });
+                
+                // 4. 显示结果
+                let message = `📊 Pending同步状态检查结果：\n\n`;
+                message += `本地pending请求：${localPending.length} 个\n`;
+                message += `云端pending请求：${cloudData.length} 个\n`;
+                message += `已同步：${synced.length} 个\n`;
+                message += `仅本地：${onlyLocal.length} 个\n`;
+                message += `仅云端：${onlyCloud.length} 个\n\n`;
+                
+                if (onlyLocal.length > 0) {
+                    message += `⚠️ 发现 ${onlyLocal.length} 个本地请求未同步到云端\n`;
+                    message += `建议：重新提交这些请求\n\n`;
+                }
+                
+                if (onlyCloud.length > 0) {
+                    message += `📥 发现 ${onlyCloud.length} 个云端请求未同步到本地\n`;
+                    message += `建议：点击"☁️ 手动同步"获取最新数据\n\n`;
+                }
+                
+                if (onlyLocal.length === 0 && onlyCloud.length === 0) {
+                    message += `✅ 本地和云端数据完全同步！`;
+                }
+                
+                updateCollabStatus('✅ pending同步状态检查完成', 'success');
+                alert(message);
+                
+            } catch (error) {
+                console.error('[PENDING_CHECK] pending同步检查异常:', error);
+                updateCollabStatus('❌ pending同步检查异常', 'error');
+                alert('❌ pending同步检查异常：' + error.message);
+            }
+        }
+        
+        // 测试pending请求保存
+        async function testPendingSave() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法测试pending保存');
+                return;
+            }
+            
+            const testPendingData = {
+                title: `测试Pending请求 - ${new Date().toLocaleString('zh-CN')}`,
+                content: '这是一个测试的pending请求，用于验证多用户同步功能',
+                date: new Date().toISOString().split('T')[0],
+                status: 'pending',
+                contact: '测试用户',
+                email: 'test@example.com'
+            };
+            
+            console.log('[TEST_PENDING] 准备测试pending请求保存:', testPendingData);
+            
+            try {
+                updateCollabStatus('⏳ 正在测试pending请求保存...', 'info');
+                
+                const { data, error } = await supabase
+                    .from('requests')
+                    .insert([testPendingData]);
+                
+                if (error) {
+                    console.error('[TEST_PENDING] pending请求保存失败:', error);
+                    console.error('[TEST_PENDING] 错误详情:', {
+                        message: error.message,
+                        details: error.details,
+                        hint: error.hint,
+                        code: error.code
+                    });
+                    updateCollabStatus('❌ pending请求保存测试失败', 'error');
+                    alert(`❌ pending请求保存测试失败：\n\n${error.message}\n\n请检查：\n1. Supabase表结构是否正确\n2. 字段名称是否匹配\n3. 数据类型是否正确\n4. 是否有插入权限`);
+                } else {
+                    console.log('[TEST_PENDING] pending请求保存成功:', data);
+                    updateCollabStatus('✅ pending请求保存测试成功', 'success');
+                    alert(`✅ pending请求保存测试成功！\n\n现在其他用户应该能看到这个pending请求。\n\n请让其他用户：\n1. 刷新页面或点击"☁️ 手动同步"\n2. 切换到"👨‍💼 管理员审核"页面\n3. 应该能看到这个测试请求`);
+                }
+                
+            } catch (error) {
+                console.error('[TEST_PENDING] pending请求保存异常:', error);
+                updateCollabStatus('❌ pending请求保存测试异常', 'error');
+                alert('❌ pending请求保存测试异常：' + error.message);
             }
         }
         
@@ -3726,41 +3884,81 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 if (collaborationEnabled && supabase) {
                     console.log('[SUBMIT] 协同功能已启用，准备保存到云端');
                     
+                    // 创建最简化的数据结构，确保兼容性
                     const cloudData = {
-                        id: request.id, // 使用本地生成的唯一ID
                         title: `${request.arc} - ${request.cohort} - ${request.target}`,
                         content: request.content,
                         date: request.sendDate,
-                        time: '09:00:00',
-                        location: request.teamDomain || 'Online',
+                        status: 'pending',
                         contact: request.submitter,
-                        email: request.email,
-                        images: request.images || [],
-                        status: 'pending'
+                        email: request.email
                     };
+                    
+                    // 可选字段，如果存在才添加
+                    if (request.teamDomain) {
+                        cloudData.location = request.teamDomain;
+                    }
+                    if (request.images && request.images.length > 0) {
+                        cloudData.images = request.images;
+                    }
                     
                     console.log(`[SUBMIT] 准备保存到云端的数据:`, cloudData);
                     console.log(`[SUBMIT] Supabase客户端状态:`, !!supabase);
                     
-                    // 使用简单的insert方法，确保数据能正确保存
-                    supabase.from('requests')
-                        .insert([cloudData])
-                        .then(({ data, error }) => {
+                    // 增强的保存逻辑，包含重试机制
+                    const saveToCloud = async (data, retryCount = 0) => {
+                        try {
+                            console.log(`[SUBMIT] 尝试保存到云端 (第${retryCount + 1}次):`, data);
+                            
+                            const { data: result, error } = await supabase
+                                .from('requests')
+                                .insert([data]);
+                            
                             if (error) {
                                 console.error(`[SUBMIT] 云端保存失败 (${request.id}):`, error);
-                                console.error('[SUBMIT] 失败的数据:', cloudData);
-                                console.error('[SUBMIT] 错误详情:', error.message, error.details);
+                                console.error('[SUBMIT] 错误详情:', {
+                                    message: error.message,
+                                    details: error.details,
+                                    hint: error.hint,
+                                    code: error.code
+                                });
+                                
+                                // 如果是字段问题，尝试更简化的数据结构
+                                if (retryCount === 0 && (error.message.includes('column') || error.message.includes('field'))) {
+                                    console.log('[SUBMIT] 尝试使用更简化的数据结构重试...');
+                                    const simpleData = {
+                                        title: data.title,
+                                        content: data.content,
+                                        date: data.date,
+                                        status: 'pending'
+                                    };
+                                    return saveToCloud(simpleData, retryCount + 1);
+                                }
+                                
+                                return false;
                             } else {
-                                console.log(`[SUBMIT] 请求已成功同步到云端 (${request.id}):`, data);
+                                console.log(`[SUBMIT] 请求已成功同步到云端 (${request.id}):`, result);
+                                return true;
                             }
-                        })
-                        .catch((err) => {
-                            console.error(`[SUBMIT] 云端保存异常 (${request.id}):`, err);
-                        });
+                        } catch (error) {
+                            console.error(`[SUBMIT] 云端保存异常 (${request.id}):`, error);
+                            return false;
+                        }
+                    };
+                    
+                    // 执行保存
+                    saveToCloud(cloudData).then(success => {
+                        if (success) {
+                            updateCollabStatus('✅ 请求已同步到云端', 'success');
+                        } else {
+                            updateCollabStatus('⚠️ 云端同步失败，仅保存到本地', 'warning');
+                        }
+                    });
                 } else {
                     console.warn('[SUBMIT] 协同功能未启用或Supabase未连接');
                     console.log('[SUBMIT] collaborationEnabled:', collaborationEnabled);
                     console.log('[SUBMIT] supabase:', !!supabase);
+                    updateCollabStatus('⚠️ 协同功能未启用，仅保存到本地', 'warning');
                 }
             });
             
@@ -4848,6 +5046,8 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         window.checkTableStructure = checkTableStructure;
         window.viewRequestsTable = viewRequestsTable;
         window.viewEventsTable = viewEventsTable;
+        window.checkPendingSync = checkPendingSync;
+        window.testPendingSave = testPendingSave;
         window.forceSaveTest = forceSaveTest;
         window.clearAllLocalData = clearAllLocalData;
         window.checkDataStatus = checkDataStatus;
