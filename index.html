@@ -131,6 +131,20 @@
             border-bottom-color: #007bff;
             background: white;
         }
+        
+        /* 权限系统样式 */
+        #userRole {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        
+        #roleDescription {
+            font-style: italic;
+            opacity: 0.9;
+        }
 
         .tab-content {
             display: none;
@@ -979,6 +993,19 @@
     <div class="container">
         <div class="header">
             <h1>OCM Blurb 提报 - 协同合作版</h1>
+            
+            <!-- 用户角色选择 -->
+            <div id="userRoleSelector" style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 5px;">
+                <label style="color: white; font-weight: bold;">选择您的角色：</label>
+                <select id="userRole" onchange="switchUserRole()" style="margin-left: 10px; padding: 5px; border-radius: 3px; border: none;">
+                    <option value="requestor">📝 Requestor</option>
+                    <option value="ocm_poc">👨‍💼 OCM POC</option>
+                </select>
+                <span id="roleDescription" style="margin-left: 15px; font-size: 12px; opacity: 0.9;">
+                    可以提报请求和查看审核记录
+                </span>
+            </div>
+            
             <div id="collabStatus" style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.2); border-radius: 5px; font-size: 14px;">
                 🔄 协同功能启动中...
             </div>
@@ -993,9 +1020,9 @@
         </div>
 
         <div class="nav-tabs">
-            <button class="nav-tab active" onclick="showTab('calendar')">发送日历</button>
-            <button class="nav-tab" onclick="showTab('admin')">管理员审核</button>
-            <button class="nav-tab" onclick="showTab('records')">审核记录</button>
+            <button id="calendarTab" class="nav-tab active" onclick="showTab('calendar')">📅 发送日历</button>
+            <button id="adminTab" class="nav-tab" onclick="showTab('admin')" style="display: none;">👨‍💼 管理员审核</button>
+            <button id="recordsTab" class="nav-tab" onclick="showTab('records')">📊 审核记录</button>
         </div>
 
         <!-- 发送日历页面 -->
@@ -1280,6 +1307,125 @@
         let requests = JSON.parse(localStorage.getItem('massRequests') || '[]');
         let approvedEvents = JSON.parse(localStorage.getItem('approvedEvents') || '[]');
         
+        // 简化的权限系统
+        let currentUserRole = 'requestor'; // 默认为Requestor
+        let isOCMAuthenticated = false; // OCM POC认证状态
+        
+        const OCM_PASSWORD = 'OCM2025'; // OCM POC密码
+        
+        // 角色配置
+        const ROLES = {
+            requestor: {
+                name: '📝 Requestor',
+                description: '可以提报请求和查看审核记录',
+                tabs: ['calendar', 'records']
+            },
+            ocm_poc: {
+                name: '👨‍💼 OCM POC',
+                description: '可以审核请求和查看所有内容',
+                tabs: ['calendar', 'admin', 'records']
+            }
+        };
+        
+        // 切换用户角色
+        function switchUserRole() {
+            const roleSelect = document.getElementById('userRole');
+            const newRole = roleSelect.value;
+            
+            console.log(`[PERMISSION] 尝试切换角色: ${currentUserRole} -> ${newRole}`);
+            
+            if (newRole === 'ocm_poc') {
+                // OCM POC需要密码验证
+                authenticateOCM((success) => {
+                    if (success) {
+                        currentUserRole = newRole;
+                        isOCMAuthenticated = true;
+                        localStorage.setItem('userRole', newRole);
+                        localStorage.setItem('ocmAuth', 'true');
+                        updateUIForRole();
+                        showTemporaryMessage('OCM POC 认证成功！', 'success');
+                    } else {
+                        // 认证失败，恢复到原角色
+                        roleSelect.value = currentUserRole;
+                        showTemporaryMessage('OCM POC 认证失败！', 'error');
+                    }
+                });
+            } else {
+                // 切换到Requestor
+                currentUserRole = newRole;
+                isOCMAuthenticated = false;
+                localStorage.setItem('userRole', newRole);
+                localStorage.removeItem('ocmAuth');
+                updateUIForRole();
+                showTemporaryMessage('已切换到 Requestor 角色', 'success');
+            }
+        }
+        
+        // OCM POC 认证
+        function authenticateOCM(callback) {
+            const password = prompt('请输入 OCM POC 密码：');
+            
+            if (password === null) {
+                // 用户取消
+                callback(false);
+                return;
+            }
+            
+            if (password === OCM_PASSWORD) {
+                callback(true);
+            } else {
+                alert('密码错误！请联系管理员获取正确密码。');
+                callback(false);
+            }
+        }
+        
+        // 根据角色更新界面
+        function updateUIForRole() {
+            const role = ROLES[currentUserRole];
+            
+            console.log(`[PERMISSION] 更新界面权限:`, role);
+            
+            // 更新角色描述
+            document.getElementById('roleDescription').textContent = role.description;
+            
+            // 控制标签页显示
+            document.getElementById('calendarTab').style.display = 
+                role.tabs.includes('calendar') ? 'block' : 'none';
+            document.getElementById('adminTab').style.display = 
+                role.tabs.includes('admin') ? 'block' : 'none';
+            document.getElementById('recordsTab').style.display = 
+                role.tabs.includes('records') ? 'block' : 'none';
+            
+            // 如果当前标签页不可见，切换到第一个可见标签页
+            const currentTab = document.querySelector('.tab-content.active');
+            if (currentTab && !role.tabs.includes(currentTab.id)) {
+                showTab(role.tabs[0]);
+            }
+        }
+        
+        // 初始化权限系统
+        function initPermissionSystem() {
+            console.log('[PERMISSION] 初始化权限系统');
+            
+            // 从本地存储加载用户角色和认证状态
+            const savedRole = localStorage.getItem('userRole');
+            const savedAuth = localStorage.getItem('ocmAuth');
+            
+            if (savedRole && ROLES[savedRole]) {
+                currentUserRole = savedRole;
+                document.getElementById('userRole').value = savedRole;
+                
+                if (savedRole === 'ocm_poc' && savedAuth === 'true') {
+                    isOCMAuthenticated = true;
+                }
+            }
+            
+            // 更新界面
+            updateUIForRole();
+            
+            console.log(`[PERMISSION] 当前用户角色: ${currentUserRole}, OCM认证: ${isOCMAuthenticated}`);
+        }
+        
         // 协同功能变量
         let supabase = null;
         let collaborationEnabled = false;
@@ -1371,19 +1517,15 @@
                     notes: item.content,
                     images: [],
                     status: item.status,
-                    submitTime: new Date(item.created_at).toLocaleString('zh-CN')
+                    submitTime: new Date(item.created_at).toLocaleString('zh-CN'),
+                    // 添加审核相关字段
+                    rejectReason: item.rejection_reason || '',
+                    approveTime: item.updated_at && item.status === 'approved' ? new Date(item.updated_at).toLocaleString('zh-CN') : '',
+                    rejectTime: item.updated_at && item.status === 'rejected' ? new Date(item.updated_at).toLocaleString('zh-CN') : ''
                 }));
                 
-                // 合并云端数据和本地数据
-                const localRequests = JSON.parse(localStorage.getItem('massRequests') || '[]');
-                requests = [...cloudRequests];
-                
-                // 添加本地独有的数据
-                localRequests.forEach(localReq => {
-                    if (!requests.some(cloudReq => cloudReq.id === localReq.id)) {
-                        requests.push(localReq);
-                    }
-                });
+                // 完全使用云端数据，确保一致性
+                requests = cloudRequests;
                 
                 // 加载事件数据
                 const { data: eventsData, error: eventsError } = await supabase
@@ -1409,20 +1551,31 @@
                     images: []
                 }));
                 
-                const localEvents = JSON.parse(localStorage.getItem('approvedEvents') || '[]');
-                approvedEvents = [...cloudEvents];
+                // 完全使用云端数据，确保一致性
+                approvedEvents = cloudEvents;
                 
-                localEvents.forEach(localEvent => {
-                    if (!approvedEvents.some(cloudEvent => cloudEvent.id === localEvent.id)) {
-                        approvedEvents.push(localEvent);
-                    }
-                });
+                // 更新本地存储以保持同步
+                localStorage.setItem('massRequests', JSON.stringify(requests));
+                localStorage.setItem('approvedEvents', JSON.stringify(approvedEvents));
                 
-                updateCollabStatus(`✅ 数据同步完成！${requests.length} 个请求，${approvedEvents.length} 个事件`, 'success');
+                // 计算统计数据
+                const pendingCount = requests.filter(r => r.status === 'pending').length;
+                const approvedCount = requests.filter(r => r.status === 'approved').length;
+                const rejectedCount = requests.filter(r => r.status === 'rejected').length;
+                
+                updateCollabStatus(`✅ 数据同步完成！总计 ${requests.length} 个请求 (待审核: ${pendingCount}, 已通过: ${approvedCount}, 已拒绝: ${rejectedCount})`, 'success');
                 
                 // 刷新界面
                 generateCalendar();
                 loadPendingRequests();
+                
+                console.log('[CLOUD] 数据同步完成，统计信息:', {
+                    total: requests.length,
+                    pending: pendingCount,
+                    approved: approvedCount,
+                    rejected: rejectedCount,
+                    events: approvedEvents.length
+                });
                 
             } catch (error) {
                 console.error('[CLOUD] 加载云端数据失败:', error);
@@ -1430,15 +1583,59 @@
             }
         }
         
-        // 手动同步数据
+        // 手动同步数据（增强版）
         async function manualSync() {
             console.log('[MANUAL] 手动同步触发');
+            updateCollabStatus('🔄 正在执行完全同步...', 'info');
+            
             if (collaborationEnabled) {
                 await loadCloudData();
+                
+                // 额外的同步验证
+                setTimeout(() => {
+                    const pendingCount = requests.filter(r => r.status === 'pending').length;
+                    const approvedCount = requests.filter(r => r.status === 'approved').length;
+                    const rejectedCount = requests.filter(r => r.status === 'rejected').length;
+                    
+                    console.log('[MANUAL] 同步完成，当前统计:', {
+                        total: requests.length,
+                        pending: pendingCount,
+                        approved: approvedCount,
+                        rejected: rejectedCount,
+                        events: approvedEvents.length
+                    });
+                    
+                    updateCollabStatus(`✅ 完全同步完成！所有数据已保持一致`, 'success');
+                }, 1000);
             } else {
                 updateCollabStatus('💾 本地数据已刷新', 'info');
                 generateCalendar();
                 loadPendingRequests();
+            }
+        }
+        
+        // 保存请求到云端
+        async function saveRequestToCloud(data) {
+            if (!collaborationEnabled || !supabase) {
+                return false;
+            }
+            
+            try {
+                console.log('[CLOUD] 保存请求到云端:', data);
+                
+                const { error } = await supabase.from('requests').insert([data]);
+                
+                if (error) {
+                    console.error('[CLOUD] 保存请求失败:', error);
+                    return false;
+                }
+                
+                console.log('[CLOUD] 请求保存成功');
+                return true;
+                
+            } catch (error) {
+                console.error('[CLOUD] 保存请求异常:', error);
+                return false;
             }
         }
         
@@ -1491,16 +1688,44 @@
                 .on('postgres_changes', 
                     { event: '*', schema: 'public', table: 'requests' }, 
                     (payload) => {
-                        console.log('[REALTIME] 检测到请求数据变化');
-                        // 延迟刷新，避免频繁更新
-                        setTimeout(() => {
-                            loadCloudData();
-                        }, 1000);
+                        console.log('[REALTIME] 检测到请求数据变化:', payload.eventType);
+                        handleDataChange('requests', payload);
+                    }
+                )
+                .subscribe();
+            
+            // 监听events表变化
+            supabase
+                .channel('events_changes')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'events' }, 
+                    (payload) => {
+                        console.log('[REALTIME] 检测到事件数据变化:', payload.eventType);
+                        handleDataChange('events', payload);
                     }
                 )
                 .subscribe();
                 
             updateCollabStatus('✅ 协同功能已启用 - 支持实时同步', 'success');
+        }
+        
+        // 处理数据变化
+        function handleDataChange(table, payload) {
+            console.log(`[REALTIME] 处理${table}数据变化:`, payload.eventType);
+            
+            // 显示同步状态
+            updateCollabStatus('🔄 正在同步数据变化...', 'info');
+            
+            // 延迟刷新，避免频繁更新，并确保数据一致性
+            setTimeout(async () => {
+                await loadCloudData();
+                updateCollabStatus('✅ 数据同步完成', 'success');
+                
+                // 2秒后恢复正常状态显示
+                setTimeout(() => {
+                    updateCollabStatus('✅ 协同功能已启用 - 支持实时同步', 'success');
+                }, 2000);
+            }, 1000);
         }
         
         // 显示调试信息
@@ -2564,7 +2789,10 @@ Supabase: ${supabase ? '已连接' : '未连接'}
 
         // 页面初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // 首先加载基本功能
+            // 首先初始化权限系统
+            initPermissionSystem();
+            
+            // 然后加载基本功能
             generateCalendar();
             
             // 初始化筛选状态
@@ -2750,6 +2978,29 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 };
                 
                 requests.push(request);
+                
+                // 同时保存到云端
+                if (collaborationEnabled && supabase) {
+                    const cloudData = {
+                        title: `${request.arc} - ${request.cohort} - ${request.target}`,
+                        content: request.content,
+                        date: request.sendDate,
+                        time: '09:00:00',
+                        location: request.teamDomain || 'Online',
+                        contact: request.submitter,
+                        email: request.email,
+                        images: request.images || [],
+                        status: 'pending'
+                    };
+                    
+                    saveRequestToCloud(cloudData).then(success => {
+                        if (success) {
+                            console.log('✅ 请求已同步到云端');
+                        } else {
+                            console.warn('⚠️ 云端同步失败，数据仅保存在本地');
+                        }
+                    });
+                }
             });
             
             localStorage.setItem('massRequests', JSON.stringify(requests));
