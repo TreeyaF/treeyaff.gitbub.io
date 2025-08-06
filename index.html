@@ -1284,6 +1284,47 @@
         let supabase = null;
         let collaborationEnabled = false;
         
+        // 更新协同状态显示
+        function updateCollabStatus(message) {
+            const statusDiv = document.getElementById('collabStatus');
+            if (statusDiv) {
+                statusDiv.innerHTML = message;
+            }
+        }
+        
+        // 手动加载云端数据
+        async function manualLoadData() {
+            console.log('[MANUAL] 手动触发云端数据加载');
+            updateCollabStatus('🔄 正在同步云端数据...');
+            
+            try {
+                await loadDataFromCloud();
+                updateCollabStatus('✅ 数据同步完成！');
+            } catch (error) {
+                console.error('[MANUAL] 手动加载失败:', error);
+                updateCollabStatus('❌ 数据同步失败');
+            }
+        }
+        
+        // 显示调试信息
+        function showDebugInfo() {
+            console.log('=== 调试信息 ===');
+            console.log('collaborationEnabled:', collaborationEnabled);
+            console.log('supabase存在:', !!supabase);
+            console.log('requests数量:', requests.length);
+            console.log('approvedEvents数量:', approvedEvents.length);
+            console.log('本地requests:', requests);
+            console.log('本地events:', approvedEvents);
+            
+            alert(`调试信息：
+协同功能: ${collaborationEnabled ? '已启用' : '未启用'}
+Supabase: ${supabase ? '已连接' : '未连接'}
+本地请求: ${requests.length} 个
+本地事件: ${approvedEvents.length} 个
+
+详细信息请查看控制台`);
+        }
+        
         // 简单的协同功能初始化
         function initCollaboration() {
             try {
@@ -1417,39 +1458,6 @@
             } catch (error) {
                 console.error('[DEBUG] 加载云端数据异常:', error);
             }
-        }
-        
-        // 手动加载云端数据
-        async function manualLoadData() {
-            console.log('[MANUAL] 手动触发云端数据加载');
-            updateCollabStatus('🔄 正在同步云端数据...');
-            
-            try {
-                await loadDataFromCloud();
-                updateCollabStatus('✅ 数据同步完成！');
-            } catch (error) {
-                console.error('[MANUAL] 手动加载失败:', error);
-                updateCollabStatus('❌ 数据同步失败');
-            }
-        }
-        
-        // 显示调试信息
-        function showDebugInfo() {
-            console.log('=== 调试信息 ===');
-            console.log('collaborationEnabled:', collaborationEnabled);
-            console.log('supabase存在:', !!supabase);
-            console.log('requests数量:', requests.length);
-            console.log('approvedEvents数量:', approvedEvents.length);
-            console.log('本地requests:', requests);
-            console.log('本地events:', approvedEvents);
-            
-            alert(`调试信息：
-协同功能: ${collaborationEnabled ? '已启用' : '未启用'}
-Supabase: ${supabase ? '已连接' : '未连接'}
-本地请求: ${requests.length} 个
-本地事件: ${approvedEvents.length} 个
-
-详细信息请查看控制台`);
         }
         
         // 保存到云端（使用调试版本中验证有效的代码）
