@@ -1019,6 +1019,12 @@
                 <button onclick="checkDataStatus()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     📊 数据状态
                 </button>
+                <button onclick="loadPendingRequests(); generateCalendar();" style="background: #10b981; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🔄 刷新审核
+                </button>
+                <button onclick="manualSync()" style="background: #3b82f6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    ☁️ 手动同步
+                </button>
             </div>
         </div>
 
@@ -1526,32 +1532,52 @@
                     submitTime: new Date(item.created_at).toLocaleString('zh-CN')
                 }));
                 
-                // 完全使用云端数据，避免重复
-                requests = cloudRequests;
+                // 智能合并云端和本地数据，优先保留最新数据
+                console.log(`[CLOUD] 云端请求数据: ${cloudRequests.length} 个`);
+                console.log(`[CLOUD] 本地请求数据: ${requests.length} 个`);
                 
-                // 额外的去重处理，确保绝对唯一
+                // 创建合并后的数据集
+                const mergedRequests = [];
+                const processedIds = new Set();
+                
+                // 1. 首先添加本地数据（优先级更高，因为可能包含刚提交的数据）
+                requests.forEach(localReq => {
+                    mergedRequests.push(localReq);
+                    processedIds.add(localReq.id);
+                });
+                
+                // 2. 然后添加云端独有的数据
+                cloudRequests.forEach(cloudReq => {
+                    if (!processedIds.has(cloudReq.id)) {
+                        mergedRequests.push(cloudReq);
+                        processedIds.add(cloudReq.id);
+                    } else {
+                        // 如果ID相同，比较时间戳，保留更新的数据
+                        const localIndex = mergedRequests.findIndex(r => r.id === cloudReq.id);
+                        if (localIndex !== -1) {
+                            const localReq = mergedRequests[localIndex];
+                            const localTime = new Date(localReq.submitTime || '1970-01-01');
+                            const cloudTime = new Date(cloudReq.submitTime || '1970-01-01');
+                            
+                            if (cloudTime > localTime) {
+                                console.log(`[CLOUD] 云端数据更新，替换本地数据: ${cloudReq.id}`);
+                                mergedRequests[localIndex] = cloudReq;
+                            }
+                        }
+                    }
+                });
+                
+                requests = mergedRequests;
+                
+                console.log(`[CLOUD] 合并后请求数据: ${requests.length} 个 (待审核: ${requests.filter(r => r.status === 'pending').length})`);
+                
+                // 基础去重处理
                 requests = requests.filter((request, index, self) => {
-                    // 按ID去重
                     const firstIndex = self.findIndex(r => r.id === request.id);
                     if (firstIndex !== index) {
                         console.log(`[CLOUD] 发现重复ID请求: ${request.id}, 已过滤`);
                         return false;
                     }
-                    
-                    // 按关键信息去重
-                    const duplicateIndex = self.findIndex(r => 
-                        r.sendDate === request.sendDate && 
-                        r.content === request.content && 
-                        r.arc === request.arc && 
-                        r.cohort === request.cohort &&
-                        r.submitter === request.submitter &&
-                        r.status === request.status
-                    );
-                    if (duplicateIndex !== index) {
-                        console.log(`[CLOUD] 发现重复内容请求: ${request.arc}-${request.cohort} ${request.sendDate}, 已过滤`);
-                        return false;
-                    }
-                    
                     return true;
                 });
                 
@@ -1629,12 +1655,35 @@
         // 手动同步数据
         async function manualSync() {
             console.log('[MANUAL] 手动同步触发');
-            if (collaborationEnabled) {
+            
+            if (!collaborationEnabled) {
+                updateCollabStatus('❌ 协同功能未启用', 'error');
+                return;
+            }
+            
+            if (isRefreshing) {
+                updateCollabStatus('⏳ 正在同步中，请稍候...', 'info');
+                return;
+            }
+            
+            try {
+                updateCollabStatus('⏳ 正在手动同步数据...', 'info');
+                isRefreshing = true;
+                
                 await loadCloudData();
-            } else {
-                updateCollabStatus('💾 本地数据已刷新', 'info');
+                
+                // 同步完成后刷新界面
                 generateCalendar();
                 loadPendingRequests();
+                
+                updateCollabStatus('✅ 手动同步完成！', 'success');
+                console.log('[MANUAL] 手动同步完成');
+                
+            } catch (error) {
+                console.error('[MANUAL] 手动同步失败:', error);
+                updateCollabStatus('❌ 手动同步失败', 'error');
+            } finally {
+                isRefreshing = false;
             }
         }
         
@@ -2610,6 +2659,8 @@ Supabase: ${supabase ? '已连接' : '未连接'}
 
         // 显示标签页
         function showTab(tabName) {
+            console.log(`[TAB] 切换到标签页: ${tabName}`);
+            
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
@@ -2623,13 +2674,17 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             
             // 如果切换到管理员页面，重新加载待审核需求
             if (tabName === 'admin') {
+                console.log('[TAB] 切换到管理员页面，加载待审核需求');
                 loadPendingRequests();
             }
             
             // 如果切换到审核记录页面，加载审核记录
             if (tabName === 'records') {
+                console.log('[TAB] 切换到审核记录页面，加载审核记录');
                 loadAuditRecords();
             }
+            
+            console.log(`[TAB] 标签页切换完成: ${tabName}`);
         }
 
         // 全局的检查当前选择函数
@@ -3197,13 +3252,24 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     
                     console.log(`[SUBMIT] 保存到云端:`, cloudData.id);
                     
-                    supabase.from('requests').insert([cloudData]).then(({ error }) => {
-                        if (error) {
-                            console.warn(`[SUBMIT] 云端保存失败 (${request.id}):`, error);
-                        } else {
-                            console.log(`[SUBMIT] 请求已同步到云端 (${request.id})`);
-                        }
-                    });
+                    // 使用upsert确保数据一致性，避免重复插入
+                    supabase.from('requests')
+                        .upsert([cloudData], { onConflict: 'id' })
+                        .then(({ error }) => {
+                            if (error) {
+                                console.warn(`[SUBMIT] 云端保存失败 (${request.id}):`, error);
+                                // 如果upsert失败，尝试普通插入
+                                return supabase.from('requests').insert([cloudData]);
+                            }
+                            return { error: null };
+                        })
+                        .then(({ error }) => {
+                            if (error) {
+                                console.error(`[SUBMIT] 云端保存彻底失败 (${request.id}):`, error);
+                            } else {
+                                console.log(`[SUBMIT] 请求已成功同步到云端 (${request.id})`);
+                            }
+                        });
                 }
             });
             
@@ -3212,9 +3278,22 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             console.log(`[SUBMIT] 本地数据已保存，共 ${requests.length} 个请求`);
             console.log(`[SUBMIT] 最新请求:`, requests.slice(-sendDates.length));
             
+            // 显示同步状态
+            if (collaborationEnabled) {
+                updateCollabStatus('⏳ 正在同步到云端...', 'info');
+            }
+            
             // 立即刷新界面显示待审核状态
             generateCalendar();
             loadPendingRequests();
+            
+            // 如果当前用户是OCM POC，确保管理员标签页可见
+            if (currentUserRole === 'ocm_poc' && isOCMAuthenticated) {
+                document.getElementById('adminTab').style.display = 'block';
+                console.log('[SUBMIT] OCM POC用户，管理员标签页已显示');
+            }
+            
+            console.log('[SUBMIT] 界面刷新完成，待审核数据应该已显示');
             
             simulateEmailNotification({
                 ...requests[requests.length - sendDates.length],
@@ -3228,18 +3307,31 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             
             console.log(`[SUBMIT] 提交完成，共创建 ${sendDates.length} 个请求，界面已刷新`);
             
-            // 延迟同步云端数据，但不立即覆盖本地显示
+            // 重新启用云端同步，但使用智能合并策略
             if (collaborationEnabled) {
                 setTimeout(() => {
-                    console.log('[SUBMIT] 开始云端数据同步验证');
+                    console.log('[SUBMIT] 开始智能云端数据同步');
                     if (!isRefreshing) {
                         isRefreshing = true;
-                        loadCloudData().finally(() => {
+                        loadCloudData().then(() => {
+                            // 同步完成后更新状态
+                            updateCollabStatus('✅ 数据已同步到云端', 'success');
+                            
+                            // 同步完成后再次刷新界面，确保显示最新数据
+                            generateCalendar();
+                            loadPendingRequests();
+                            
+                            console.log('[SUBMIT] 云端数据同步完成，界面已更新');
+                        }).catch((error) => {
+                            console.error('[SUBMIT] 云端同步失败:', error);
+                            updateCollabStatus('❌ 云端同步失败，使用本地数据', 'error');
+                        }).finally(() => {
                             isRefreshing = false;
-                            console.log('[SUBMIT] 云端数据同步验证完成');
                         });
                     }
-                }, 5000); // 延长时间，确保云端保存完成
+                }, 3000); // 给云端保存足够的时间
+            } else {
+                console.log('[SUBMIT] 协同功能未启用，仅使用本地数据');
             }
             
             // 恢复提交按钮状态
@@ -3250,8 +3342,24 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         
         // 加载待审核需求
         function loadPendingRequests() {
+            console.log('[PENDING] 开始加载待审核请求');
+            console.log('[PENDING] 总请求数:', requests.length);
+            
             const pendingContainer = document.getElementById('pendingRequests');
+            if (!pendingContainer) {
+                console.error('[PENDING] 找不到pendingRequests容器');
+                return;
+            }
+            
             let pendingRequests = requests.filter(req => req.status === 'pending');
+            console.log('[PENDING] 原始待审核请求数:', pendingRequests.length);
+            
+            if (pendingRequests.length > 0) {
+                console.log('[PENDING] 待审核请求详情:');
+                pendingRequests.forEach((req, index) => {
+                    console.log(`  ${index + 1}. ID: ${req.id}, 日期: ${req.sendDate}, ARC: ${req.arc}-${req.cohort}, 状态: ${req.status}`);
+                });
+            }
             
             // 去重处理，防止重复显示
             pendingRequests = pendingRequests.filter((request, index, self) => {
@@ -3501,8 +3609,17 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         }
 
         function loadAuditRecords() {
+            console.log('[RECORDS] 开始加载审核记录');
+            
             const recordsList = document.getElementById('recordsList');
+            if (!recordsList) {
+                console.error('[RECORDS] 找不到recordsList容器');
+                return;
+            }
+            
             const statusFilter = document.getElementById('statusFilter').value;
+            console.log('[RECORDS] 状态筛选:', statusFilter);
+            console.log('[RECORDS] 总请求数:', requests.length);
             const arcFilter = document.getElementById('arcFilter').value;
             const cohortFilter = document.getElementById('cohortFilter').value;
             const idSearch = document.getElementById('idSearch').value.trim();
