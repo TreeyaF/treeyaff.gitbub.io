@@ -1031,9 +1031,6 @@
                 <button onclick="checkTableStructure()" style="background: #0891b2; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     📋 检查表结构
                 </button>
-                <button onclick="testPendingSave()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🧪 测试Pending
-                </button>
                 <button onclick="checkPendingInCloud()" style="background: #8b5cf6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🔍 检查云端
                 </button>
@@ -2215,15 +2212,31 @@
                 
                 console.log('[CHECK] 云端pending数据:', data);
                 
-                if (data && data.length > 0) {
-                    const summary = data.map((item, index) => {
+                // 过滤掉测试数据，只显示真实的pending请求
+                const realPendingData = data.filter(item => 
+                    !item.title.includes('测试Pending') && 
+                    !item.title.includes('测试数据') &&
+                    !item.contact.includes('测试用户')
+                );
+                
+                if (realPendingData && realPendingData.length > 0) {
+                    const summary = realPendingData.map((item, index) => {
                         const date = new Date(item.created_at).toLocaleString('zh-CN');
                         return `${index + 1}. ${item.title} (${date})`;
                     }).join('\n');
                     
-                    alert(`✅ 云端pending数据检查完成！\n\n找到 ${data.length} 个pending请求：\n\n${summary}\n\n这些数据应该对其他用户可见。`);
+                    alert(`✅ 云端pending数据检查完成！\n\n找到 ${realPendingData.length} 个真实pending请求：\n\n${summary}\n\n这些数据应该对其他用户可见。`);
                 } else {
-                    alert('📋 云端requests表中没有pending数据\n\n可能原因：\n1. 数据保存失败\n2. 表结构问题\n3. 权限设置问题\n\n建议：\n1. 尝试"🧪 测试Pending"功能\n2. 检查Supabase控制台\n3. 查看浏览器控制台错误');
+                    const testCount = data.length - realPendingData.length;
+                    let message = '📋 云端requests表中没有真实的pending数据\n\n';
+                    
+                    if (testCount > 0) {
+                        message += `发现 ${testCount} 个测试数据（已过滤）\n\n`;
+                    }
+                    
+                    message += '状态：\n• 所有pending请求都已被处理\n• 或者还没有用户提报新的事件\n\n这是正常的生产状态。';
+                    
+                    alert(message);
                 }
                 
                 updateCollabStatus('✅ 云端pending数据检查完成', 'success');
@@ -2231,81 +2244,6 @@
             } catch (error) {
                 console.error('[CHECK] 检查异常:', error);
                 alert('❌ 检查云端pending数据异常：' + error.message);
-            }
-        }
-        
-        // 详细的测试pending保存功能
-        async function testPendingSave() {
-            if (!collaborationEnabled || !supabase) {
-                alert('❌ 协同功能未启用\n\n请确保：\n1. 页面已完全加载\n2. 网络连接正常\n3. Supabase配置正确');
-                return;
-            }
-            
-            const timestamp = new Date().toLocaleString('zh-CN');
-            const testData = {
-                title: `测试Pending请求 - ${timestamp}`,
-                content: '这是一个测试的pending请求，用于验证多用户同步功能是否正常工作',
-                date: new Date().toISOString().split('T')[0],
-                time: '09:00:00', // 添加必需的time字段
-                status: 'pending',
-                contact: '测试用户',
-                email: 'test@example.com',
-                location: 'Online', // 添加location字段
-                created_at: new Date().toISOString()
-            };
-            
-            console.log('[TEST_PENDING] 开始测试pending保存');
-            console.log('[TEST_PENDING] 测试数据:', testData);
-            
-            try {
-                updateCollabStatus('⏳ 正在测试pending请求保存...', 'info');
-                
-                // 步骤1：保存数据
-                console.log('[TEST_PENDING] 步骤1：保存数据到云端');
-                const { data: insertData, error: insertError } = await supabase
-                    .from('requests')
-                    .insert([testData]);
-                
-                if (insertError) {
-                    console.error('[TEST_PENDING] 保存失败:', insertError);
-                    updateCollabStatus('❌ pending保存测试失败', 'error');
-                    alert(`❌ Pending保存测试失败！\n\n错误信息：${insertError.message}\n\n详细信息：\n${JSON.stringify(insertError, null, 2)}\n\n建议：\n1. 检查Supabase表结构\n2. 确认字段名称匹配\n3. 检查数据类型\n4. 验证权限设置`);
-                    return;
-                }
-                
-                console.log('[TEST_PENDING] 步骤1完成，保存结果:', insertData);
-                
-                // 步骤2：验证数据是否真的保存了
-                console.log('[TEST_PENDING] 步骤2：验证数据保存');
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 等待1秒
-                
-                const { data: verifyData, error: verifyError } = await supabase
-                    .from('requests')
-                    .select('*')
-                    .eq('title', testData.title)
-                    .eq('status', 'pending');
-                
-                if (verifyError) {
-                    console.error('[TEST_PENDING] 验证失败:', verifyError);
-                    alert('⚠️ 保存成功但验证失败：' + verifyError.message);
-                    return;
-                }
-                
-                if (verifyData && verifyData.length > 0) {
-                    console.log('[TEST_PENDING] 步骤2完成，验证成功:', verifyData);
-                    updateCollabStatus('✅ pending保存测试完全成功', 'success');
-                    
-                    alert(`✅ Pending保存测试完全成功！\n\n测试结果：\n• 数据已保存到云端\n• 验证查询成功\n• 其他用户现在应该能看到这个pending请求\n\n测试数据：\n标题：${testData.title}\n内容：${testData.content}\n状态：${testData.status}\n\n下一步：\n1. 让其他用户点击"☁️ 手动同步"\n2. 切换到"👨‍💼 管理员审核"页面\n3. 应该能看到这个测试请求`);
-                } else {
-                    console.warn('[TEST_PENDING] 验证失败，未找到保存的数据');
-                    updateCollabStatus('⚠️ 保存成功但验证未找到数据', 'warning');
-                    alert('⚠️ 奇怪的问题：数据保存成功但验证时未找到\n\n可能原因：\n1. 数据库延迟\n2. 查询条件问题\n3. 权限设置问题\n\n建议：直接登录Supabase控制台检查');
-                }
-                
-            } catch (error) {
-                console.error('[TEST_PENDING] 测试异常:', error);
-                updateCollabStatus('❌ pending保存测试异常', 'error');
-                alert('❌ Pending保存测试异常：' + error.message);
             }
         }
         
@@ -5070,7 +5008,6 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         window.manualSync = manualSync;
         window.testCloudConnection = testCloudConnection;
         window.checkTableStructure = checkTableStructure;
-        window.testPendingSave = testPendingSave;
         window.checkPendingInCloud = checkPendingInCloud;
         window.verifyPendingSave = verifyPendingSave;
         window.clearAllLocalData = clearAllLocalData;
