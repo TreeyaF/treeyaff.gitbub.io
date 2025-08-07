@@ -1037,6 +1037,9 @@
                 <button onclick="testRejectSync()" style="background: #ef4444; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🧪 测试拒绝
                 </button>
+                <button onclick="checkRejectedInCloud()" style="background: #f97316; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    📋 查看拒绝
+                </button>
                 <button onclick="clearAllLocalData()" style="background: #dc2626; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🗑️ 清理数据
                 </button>
@@ -2158,45 +2161,141 @@
             }
         }
         
-        // 简单测试拒绝功能
+        // 详细测试拒绝功能
         async function testRejectSync() {
             if (!collaborationEnabled || !supabase) {
-                alert('❌ 协同功能未启用');
+                alert('❌ 协同功能未启用，无法测试拒绝同步');
                 return;
             }
             
             try {
+                console.log('[TEST_REJECT] 开始测试拒绝功能');
+                updateCollabStatus('⏳ 正在测试拒绝功能...', 'info');
+                
+                // 查找pending请求
                 const { data, error } = await supabase
                     .from('requests')
                     .select('*')
                     .eq('status', 'pending')
                     .limit(1);
                 
-                if (error || !data || data.length === 0) {
-                    alert('📋 没有找到pending请求进行测试');
+                if (error) {
+                    console.error('[TEST_REJECT] 查找pending请求失败:', error);
+                    alert('❌ 查找pending请求失败: ' + error.message);
+                    return;
+                }
+                
+                if (!data || data.length === 0) {
+                    alert('📋 没有找到pending请求进行测试\n\n请先提报一个事件，然后再测试拒绝功能');
                     return;
                 }
                 
                 const testRequest = data[0];
-                const testReason = '测试拒绝 - ' + new Date().toLocaleString('zh-CN');
+                const testReason = '测试拒绝功能 - ' + new Date().toLocaleString('zh-CN');
                 
-                const { error: updateError } = await supabase
+                console.log('[TEST_REJECT] 找到测试请求:', testRequest.id, testRequest.title);
+                
+                // 执行拒绝操作
+                const updateData = {
+                    status: 'rejected',
+                    rejection_reason: testReason,
+                    updated_at: new Date().toISOString()
+                };
+                
+                console.log('[TEST_REJECT] 执行拒绝操作:', updateData);
+                
+                const { data: updateResult, error: updateError } = await supabase
                     .from('requests')
-                    .update({
-                        status: 'rejected',
-                        rejection_reason: testReason,
-                        updated_at: new Date().toISOString()
-                    })
+                    .update(updateData)
                     .eq('id', testRequest.id);
                 
                 if (updateError) {
-                    alert('❌ 测试失败: ' + updateError.message);
+                    console.error('[TEST_REJECT] 拒绝操作失败:', updateError);
+                    updateCollabStatus('❌ 拒绝测试失败', 'error');
+                    alert(`❌ 拒绝操作失败！\n\n错误信息：${updateError.message}\n\n详细信息：${JSON.stringify(updateError, null, 2)}`);
+                    return;
+                }
+                
+                console.log('[TEST_REJECT] 拒绝操作成功:', updateResult);
+                
+                // 验证更新结果
+                console.log('[TEST_REJECT] 验证更新结果...');
+                
+                const { data: verifyData, error: verifyError } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .eq('id', testRequest.id)
+                    .single();
+                
+                if (verifyError) {
+                    console.error('[TEST_REJECT] 验证失败:', verifyError);
+                    alert('⚠️ 拒绝操作成功，但验证失败: ' + verifyError.message);
+                    return;
+                }
+                
+                console.log('[TEST_REJECT] 验证结果:', verifyData);
+                
+                if (verifyData.status === 'rejected') {
+                    console.log('[TEST_REJECT] ✅ 拒绝功能测试完全成功');
+                    updateCollabStatus('✅ 拒绝功能测试成功', 'success');
+                    
+                    alert(`✅ 拒绝功能测试完全成功！\n\n测试结果：\n• 请求ID：${testRequest.id}\n• 原状态：pending\n• 新状态：${verifyData.status}\n• 拒绝原因：${verifyData.rejection_reason}\n• 更新时间：${verifyData.updated_at}\n\n✅ 云端数据已正确更新！\n\n建议：让其他用户点击"☁️ 手动同步"查看结果`);
                 } else {
-                    alert('✅ 拒绝功能测试成功！\n\n请让其他用户手动同步查看结果。');
+                    console.error('[TEST_REJECT] ❌ 验证失败：状态未正确更新');
+                    updateCollabStatus('❌ 状态更新验证失败', 'error');
+                    alert(`❌ 状态更新验证失败！\n\n期望状态：rejected\n实际状态：${verifyData.status}\n\n可能原因：\n1. 数据库约束问题\n2. 权限设置问题\n3. 字段类型不匹配`);
                 }
                 
             } catch (err) {
-                alert('❌ 测试异常: ' + err.message);
+                console.error('[TEST_REJECT] 测试异常:', err);
+                updateCollabStatus('❌ 拒绝测试异常', 'error');
+                alert('❌ 拒绝功能测试异常：' + err.message);
+            }
+        }
+        
+        // 检查云端拒绝状态
+        async function checkRejectedInCloud() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用，无法检查云端数据');
+                return;
+            }
+            
+            try {
+                console.log('[CHECK_REJECTED] 开始检查云端拒绝数据');
+                updateCollabStatus('⏳ 正在检查云端拒绝数据...', 'info');
+                
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .eq('status', 'rejected')
+                    .order('updated_at', { ascending: false });
+                
+                if (error) {
+                    console.error('[CHECK_REJECTED] 检查失败:', error);
+                    alert('❌ 检查云端拒绝数据失败：' + error.message);
+                    return;
+                }
+                
+                console.log('[CHECK_REJECTED] 云端拒绝数据:', data);
+                
+                if (data && data.length > 0) {
+                    const summary = data.map((item, index) => {
+                        const date = new Date(item.updated_at || item.created_at).toLocaleString('zh-CN');
+                        const reason = item.rejection_reason || '无原因';
+                        return `${index + 1}. ${item.title}\n   拒绝时间: ${date}\n   拒绝原因: ${reason}`;
+                    }).join('\n\n');
+                    
+                    updateCollabStatus('✅ 云端拒绝数据检查完成', 'success');
+                    alert(`✅ 云端拒绝数据检查完成！\n\n找到 ${data.length} 个已拒绝请求：\n\n${summary}\n\n这些数据表明拒绝功能正常工作。`);
+                } else {
+                    updateCollabStatus('📋 没有找到拒绝数据', 'info');
+                    alert('📋 云端requests表中没有拒绝状态的数据\n\n这可能意味着：\n1. 还没有请求被拒绝\n2. 拒绝功能确实存在问题\n3. 数据已被清理\n\n建议：先运行"🧪 测试拒绝"功能');
+                }
+                
+            } catch (error) {
+                console.error('[CHECK_REJECTED] 检查异常:', error);
+                updateCollabStatus('❌ 检查拒绝数据异常', 'error');
+                alert('❌ 检查云端拒绝数据异常：' + error.message);
             }
         }
         
@@ -4230,13 +4329,17 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             
             console.log('[REJECT] 开始拒绝请求组:', groupId, '包含', groupRequests.length, '个请求');
             
+            // 逐个处理每个请求，确保云端同步完成
             for (const request of groupRequests) {
                 if (request.status === 'pending') {
+                    console.log(`[REJECT] 处理请求: ${request.id}`);
+                    
+                    // 更新本地状态
                     request.status = 'rejected';
                     request.rejectReason = reason;
                     request.rejectTime = rejectTime;
                     
-                    // 同步拒绝状态到云端 - 简化版本
+                    // 同步拒绝状态到云端 - 强制等待完成
                     if (collaborationEnabled && supabase) {
                         console.log(`[REJECT] 开始同步拒绝状态到云端: ${request.id}`);
                         
@@ -4247,22 +4350,49 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                                 updated_at: new Date().toISOString()
                             };
                             
-                            const { error } = await supabase
+                            console.log(`[REJECT] 更新数据:`, updateData);
+                            
+                            const { data, error } = await supabase
                                 .from('requests')
                                 .update(updateData)
                                 .eq('id', request.id);
                             
                             if (error) {
-                                console.error(`[REJECT] 云端状态更新失败 (${request.id}):`, error);
+                                console.error(`[REJECT] ❌ 云端状态更新失败 (${request.id}):`, error);
+                                console.error(`[REJECT] 错误详情:`, error.message, error.details);
+                                alert(`❌ 请求 ${request.id} 的云端状态更新失败：\n${error.message}`);
                             } else {
-                                console.log(`[REJECT] 云端状态更新成功 (${request.id})`);
+                                console.log(`[REJECT] ✅ 云端状态更新成功 (${request.id}):`, data);
                             }
+                            
+                            // 验证更新结果
+                            const { data: verifyData, error: verifyError } = await supabase
+                                .from('requests')
+                                .select('status, rejection_reason')
+                                .eq('id', request.id)
+                                .single();
+                            
+                            if (verifyError) {
+                                console.warn(`[REJECT] 验证失败 (${request.id}):`, verifyError);
+                            } else {
+                                console.log(`[REJECT] 验证结果 (${request.id}):`, verifyData);
+                                if (verifyData.status !== 'rejected') {
+                                    console.error(`[REJECT] ⚠️ 验证失败：云端状态仍为 ${verifyData.status}`);
+                                    alert(`⚠️ 警告：请求 ${request.id} 的云端状态更新可能失败，当前状态：${verifyData.status}`);
+                                }
+                            }
+                            
                         } catch (err) {
-                            console.error(`[REJECT] 云端状态更新异常 (${request.id}):`, err);
+                            console.error(`[REJECT] ❌ 云端状态更新异常 (${request.id}):`, err);
+                            alert(`❌ 请求 ${request.id} 的云端同步异常：\n${err.message}`);
                         }
+                    } else {
+                        console.warn(`[REJECT] ⚠️ 协同功能未启用，跳过云端同步 (${request.id})`);
                     }
                 }
             }
+            
+            console.log('[REJECT] 所有请求处理完成，更新本地存储');
             
             localStorage.setItem('massRequests', JSON.stringify(requests));
             loadPendingRequests();
@@ -5064,6 +5194,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         window.checkTableStructure = checkTableStructure;
         window.checkPendingInCloud = checkPendingInCloud;
         window.testRejectSync = testRejectSync;
+        window.checkRejectedInCloud = checkRejectedInCloud;
         window.verifyPendingSave = verifyPendingSave;
         window.clearAllLocalData = clearAllLocalData;
         window.checkDataStatus = checkDataStatus;
