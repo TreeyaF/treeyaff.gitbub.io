@@ -1046,6 +1046,12 @@
                 <button onclick="createSampleEvent()" style="background: #10b981; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     📝 创建示例
                 </button>
+                <button onclick="checkImageData()" style="background: #6366f1; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🖼️ 检查图片
+                </button>
+                <button onclick="createTestRequestWithImage()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    📷 测试图片
+                </button>
                 <button onclick="clearAllLocalData()" style="background: #dc2626; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🗑️ 清理数据
                 </button>
@@ -2328,6 +2334,159 @@
                 updateCollabStatus('❌ 检查拒绝数据异常', 'error');
                 alert('❌ 检查云端拒绝数据异常：' + error.message);
             }
+        }
+        
+        // 创建带图片的测试请求
+        function createTestRequestWithImage() {
+            // 创建一个简单的测试图片（1x1像素的红色PNG）
+            const testImageData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
+            
+            const testRequest = {
+                id: 'test_img_' + Date.now(),
+                content: '这是一个包含测试图片的请求，用于验证图片显示功能是否正常工作。',
+                arc: 'SELLER',
+                cohort: 'TEST_COHORT',
+                target: 'seller',
+                sendDate: new Date().toISOString().split('T')[0],
+                submitter: '测试用户',
+                teamDomain: 'Test Domain',
+                email: 'test@example.com',
+                notes: '测试图片显示功能',
+                images: [
+                    {
+                        name: 'test-image.png',
+                        type: 'image/png',
+                        size: 95,
+                        data: testImageData
+                    }
+                ],
+                recurrence: 'none',
+                recurrenceEnd: null,
+                isRecurring: false,
+                recurringGroup: null,
+                submitTime: new Date().toLocaleString('zh-CN'),
+                status: 'pending'
+            };
+            
+            // 添加到请求列表
+            requests.push(testRequest);
+            
+            // 更新本地存储
+            localStorage.setItem('massRequests', JSON.stringify(requests));
+            
+            // 刷新界面
+            loadPendingRequests();
+            generateCalendar();
+            
+            console.log('[TEST_IMAGE] 带图片的测试请求已创建:', testRequest);
+            alert(`✅ 带图片的测试请求已创建！\n\n请求ID: ${testRequest.id}\n图片数量: ${testRequest.images.length}\n\n请切换到"👨‍💼 管理员审核"页面查看图片是否正常显示。`);
+        }
+        
+        // 检查图片数据状态
+        function checkImageData() {
+            console.log('[IMAGE_CHECK] 开始检查图片数据状态');
+            
+            let totalRequests = 0;
+            let requestsWithImages = 0;
+            let totalImages = 0;
+            let validImages = 0;
+            let invalidImages = 0;
+            
+            const imageDetails = [];
+            
+            // 检查所有请求中的图片数据
+            requests.forEach(request => {
+                totalRequests++;
+                
+                if (request.images && request.images.length > 0) {
+                    requestsWithImages++;
+                    
+                    request.images.forEach((img, index) => {
+                        totalImages++;
+                        
+                        const imageInfo = {
+                            requestId: request.id,
+                            requestStatus: request.status,
+                            submitter: request.submitter,
+                            imageIndex: index,
+                            name: img.name,
+                            type: img.type,
+                            size: img.size,
+                            hasData: !!img.data,
+                            dataLength: img.data ? img.data.length : 0,
+                            isValidBase64: false
+                        };
+                        
+                        // 检查是否是有效的base64图片数据
+                        if (img.data) {
+                            try {
+                                if (img.data.startsWith('data:image/')) {
+                                    imageInfo.isValidBase64 = true;
+                                    validImages++;
+                                } else {
+                                    invalidImages++;
+                                }
+                            } catch (error) {
+                                invalidImages++;
+                            }
+                        } else {
+                            invalidImages++;
+                        }
+                        
+                        imageDetails.push(imageInfo);
+                    });
+                }
+            });
+            
+            // 检查已批准事件中的图片数据
+            let approvedWithImages = 0;
+            let approvedTotalImages = 0;
+            
+            approvedEvents.forEach(event => {
+                if (event.images && event.images.length > 0) {
+                    approvedWithImages++;
+                    approvedTotalImages += event.images.length;
+                }
+            });
+            
+            console.log('[IMAGE_CHECK] 图片数据统计:', {
+                totalRequests,
+                requestsWithImages,
+                totalImages,
+                validImages,
+                invalidImages,
+                approvedWithImages,
+                approvedTotalImages
+            });
+            
+            console.log('[IMAGE_CHECK] 详细图片信息:', imageDetails);
+            
+            // 生成报告
+            let report = `📊 图片数据检查报告\n\n`;
+            report += `总请求数: ${totalRequests}\n`;
+            report += `包含图片的请求: ${requestsWithImages}\n`;
+            report += `总图片数: ${totalImages}\n`;
+            report += `有效图片: ${validImages}\n`;
+            report += `无效图片: ${invalidImages}\n`;
+            report += `已批准事件中包含图片: ${approvedWithImages}\n`;
+            report += `已批准事件总图片数: ${approvedTotalImages}\n\n`;
+            
+            if (imageDetails.length > 0) {
+                report += `详细信息:\n`;
+                imageDetails.forEach((img, index) => {
+                    report += `${index + 1}. 请求${img.requestId} (${img.requestStatus}) - ${img.name}\n`;
+                    report += `   大小: ${img.size} bytes, 类型: ${img.type}\n`;
+                    report += `   数据: ${img.hasData ? '✅' : '❌'}, 有效: ${img.isValidBase64 ? '✅' : '❌'}\n\n`;
+                });
+            } else {
+                report += `没有找到任何图片数据。\n\n`;
+                report += `可能原因:\n`;
+                report += `1. 用户没有上传图片\n`;
+                report += `2. 图片数据在保存时丢失\n`;
+                report += `3. 图片数据格式不正确\n`;
+            }
+            
+            alert(report);
         }
         
         // 创建示例事件用于测试标题显示
@@ -4063,8 +4222,26 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     id: request.id,
                     date: request.sendDate,
                     arc: request.arc,
-                    cohort: request.cohort
+                    cohort: request.cohort,
+                    imagesCount: selectedImages.length
                 });
+                
+                // 调试图片数据
+                if (selectedImages.length > 0) {
+                    console.log(`[SUBMIT] 请求 ${request.id} 包含 ${selectedImages.length} 张图片:`);
+                    selectedImages.forEach((img, imgIndex) => {
+                        console.log(`[SUBMIT] 图片 ${imgIndex + 1}:`, {
+                            name: img.name,
+                            type: img.type,
+                            size: img.size,
+                            hasData: !!img.data,
+                            dataLength: img.data ? img.data.length : 0,
+                            dataPreview: img.data ? img.data.substring(0, 50) + '...' : 'no data'
+                        });
+                    });
+                } else {
+                    console.log(`[SUBMIT] 请求 ${request.id} 没有图片`);
+                }
                 
                 requests.push(request);
                 
@@ -4279,12 +4456,35 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         <strong>发送内容：</strong><br>
                         ${mainRequest.content.replace(/\n/g, '<br>')}
                     </div>
-                    ${mainRequest.images && mainRequest.images.length > 0 ? `
-                        <div style="margin: 10px 0;">
-                            <strong>附件图片 (${mainRequest.images.length}张)：</strong>
-                            ${createImageGallery(mainRequest.images)}
-                        </div>
-                    ` : ''}
+                    ${(() => {
+                        // 调试图片数据
+                        console.log(`[PENDING] 请求 ${mainRequest.id} 的图片数据:`, mainRequest.images);
+                        
+                        if (mainRequest.images && mainRequest.images.length > 0) {
+                            console.log(`[PENDING] 找到 ${mainRequest.images.length} 张图片`);
+                            mainRequest.images.forEach((img, index) => {
+                                console.log(`[PENDING] 图片 ${index + 1}:`, {
+                                    name: img.name,
+                                    size: img.size,
+                                    type: img.type,
+                                    hasData: !!img.data,
+                                    dataLength: img.data ? img.data.length : 0
+                                });
+                            });
+                            
+                            return `
+                                <div style="margin: 10px 0;">
+                                    <strong>附件图片 (${mainRequest.images.length}张)：</strong>
+                                    <div style="margin-top: 8px;">
+                                        ${createImageGallery(mainRequest.images)}
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            console.log(`[PENDING] 请求 ${mainRequest.id} 没有图片数据`);
+                            return '';
+                        }
+                    })()}
                     ${mainRequest.notes ? `<div><strong>备注：</strong> ${mainRequest.notes}</div>` : ''}
                 </div>
             `}).join('');
@@ -4500,17 +4700,58 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             showTemporaryMessage(message, 'warning');
         }
 
-        // 创建图片画廊
+        // 创建图片画廊 - 增强版本
         function createImageGallery(images) {
-            if (!images || images.length === 0) return '';
+            console.log('[IMAGE_GALLERY] 开始创建图片画廊:', images);
             
-            return images.map(img => `
-                <div style="display: inline-block; margin: 5px;">
-                    <img src="${img.data}" alt="${img.name}" 
-                         style="width: 100px; height: 100px; object-fit: cover; border-radius: 4px; cursor: pointer;"
-                         onclick="showImageModal('${img.data}', '${img.name}')">
-                </div>
-            `).join('');
+            if (!images || images.length === 0) {
+                console.log('[IMAGE_GALLERY] 没有图片数据');
+                return '';
+            }
+            
+            try {
+                const galleryHTML = images.map((img, index) => {
+                    console.log(`[IMAGE_GALLERY] 处理图片 ${index + 1}:`, {
+                        name: img.name,
+                        type: img.type,
+                        size: img.size,
+                        hasData: !!img.data,
+                        dataPreview: img.data ? img.data.substring(0, 50) + '...' : 'no data'
+                    });
+                    
+                    if (!img.data) {
+                        console.warn(`[IMAGE_GALLERY] 图片 ${img.name} 没有数据`);
+                        return `
+                            <div style="display: inline-block; margin: 5px; padding: 10px; border: 1px dashed #ccc; border-radius: 4px;">
+                                <div style="color: #666; font-size: 12px;">❌ ${img.name}</div>
+                                <div style="color: #999; font-size: 10px;">图片数据缺失</div>
+                            </div>
+                        `;
+                    }
+                    
+                    return `
+                        <div style="display: inline-block; margin: 5px; position: relative;">
+                            <img src="${img.data}" alt="${img.name}" 
+                                 style="width: 100px; height: 100px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #ddd;"
+                                 onclick="showImageModal('${img.data.replace(/'/g, "\\'")}', '${img.name.replace(/'/g, "\\'")}')"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <div style="display: none; width: 100px; height: 100px; background: #f8f9fa; border: 1px dashed #ccc; border-radius: 4px; text-align: center; line-height: 100px; font-size: 12px; color: #666;">
+                                ❌ 加载失败<br>${img.name}
+                            </div>
+                            <div style="position: absolute; bottom: 2px; left: 2px; right: 2px; background: rgba(0,0,0,0.7); color: white; font-size: 10px; padding: 2px; border-radius: 2px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                ${img.name}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                console.log('[IMAGE_GALLERY] 图片画廊创建完成');
+                return galleryHTML;
+                
+            } catch (error) {
+                console.error('[IMAGE_GALLERY] 创建图片画廊时出错:', error);
+                return `<div style="color: red; font-size: 12px;">❌ 图片显示错误: ${error.message}</div>`;
+            }
         }
 
         // 显示图片模态框
@@ -5286,6 +5527,8 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         window.checkRejectedInCloud = checkRejectedInCloud;
         window.testEventTitleDisplay = testEventTitleDisplay;
         window.createSampleEvent = createSampleEvent;
+        window.checkImageData = checkImageData;
+        window.createTestRequestWithImage = createTestRequestWithImage;
         window.verifyPendingSave = verifyPendingSave;
         window.clearAllLocalData = clearAllLocalData;
         window.checkDataStatus = checkDataStatus;
