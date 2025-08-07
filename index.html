@@ -1052,6 +1052,15 @@
                 <button onclick="createTestRequestWithImage()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     📷 测试图片
                 </button>
+                <button onclick="testUserImageUpload()" style="background: #8b5cf6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    👤 用户上传
+                </button>
+                <button onclick="simulateUserImageUpload()" style="background: #06b6d4; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🎭 模拟上传
+                </button>
+                <button onclick="fullUserImageTest()" style="background: #10b981; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🔄 完整测试
+                </button>
                 <button onclick="clearAllLocalData()" style="background: #dc2626; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🗑️ 清理数据
                 </button>
@@ -2334,6 +2343,175 @@
                 updateCollabStatus('❌ 检查拒绝数据异常', 'error');
                 alert('❌ 检查云端拒绝数据异常：' + error.message);
             }
+        }
+        
+        // 测试用户图片上传流程
+        function testUserImageUpload() {
+            console.log('[TEST_USER_UPLOAD] 开始测试用户图片上传流程');
+            
+            // 检查当前selectedImages状态
+            console.log('[TEST_USER_UPLOAD] 当前selectedImages:', selectedImages);
+            
+            if (selectedImages.length === 0) {
+                alert(`📷 测试用户图片上传流程\n\n当前没有选择图片。\n\n请按以下步骤测试：\n1. 点击"📝 提报事件"按钮\n2. 在弹出的表单中选择图片文件\n3. 填写其他必要信息\n4. 提交表单\n5. 切换到管理员审核页面查看图片\n\n如果图片仍然不显示，请检查：\n• 图片文件格式（支持jpg, png, gif等）\n• 图片文件大小（建议小于5MB）\n• 浏览器控制台的错误信息`);
+                return;
+            }
+            
+            // 显示当前选择的图片信息
+            let imageInfo = `📷 当前选择的图片信息：\n\n`;
+            selectedImages.forEach((img, index) => {
+                imageInfo += `${index + 1}. ${img.name}\n`;
+                imageInfo += `   类型: ${img.type || '未知'}\n`;
+                imageInfo += `   大小: ${img.size} bytes\n`;
+                imageInfo += `   数据: ${img.data ? '✅ 有效' : '❌ 无效'}\n`;
+                imageInfo += `   数据长度: ${img.data ? img.data.length : 0}\n\n`;
+            });
+            
+            imageInfo += `总计: ${selectedImages.length} 张图片\n\n`;
+            imageInfo += `这些图片将在提交表单时保存到请求中。`;
+            
+            alert(imageInfo);
+        }
+        
+        // 完整的用户图片上传测试流程
+        async function fullUserImageTest() {
+            console.log('[FULL_TEST] 开始完整的用户图片上传测试流程');
+            
+            try {
+                // 第一步：模拟用户选择图片
+                const testImages = [
+                    {
+                        name: 'user-upload-test.png',
+                        type: 'image/png',
+                        size: 180,
+                        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='
+                    }
+                ];
+                
+                selectedImages = [...testImages];
+                console.log('[FULL_TEST] 第一步：模拟用户选择图片完成');
+                
+                // 第二步：创建请求
+                const testRequest = {
+                    id: 'full_test_' + Date.now(),
+                    content: '这是完整的用户图片上传测试，验证从用户上传到管理员审核的完整流程。',
+                    arc: 'SELLER',
+                    cohort: 'TEST_COHORT',
+                    target: 'SELLER-TEST_COHORT',
+                    sendDate: new Date().toISOString().split('T')[0],
+                    submitter: '测试用户',
+                    teamDomain: 'Test Domain',
+                    email: 'test@example.com',
+                    notes: '完整流程测试',
+                    images: selectedImages, // 使用用户选择的图片
+                    recurrence: 'none',
+                    recurrenceEnd: null,
+                    isRecurring: false,
+                    recurringGroup: null,
+                    submitTime: new Date().toLocaleString('zh-CN'),
+                    status: 'pending'
+                };
+                
+                console.log('[FULL_TEST] 第二步：创建请求完成', {
+                    id: testRequest.id,
+                    imagesCount: testRequest.images.length,
+                    imageDetails: testRequest.images.map(img => ({
+                        name: img.name,
+                        type: img.type,
+                        hasData: !!img.data
+                    }))
+                });
+                
+                // 第三步：保存到本地
+                requests.push(testRequest);
+                localStorage.setItem('massRequests', JSON.stringify(requests));
+                console.log('[FULL_TEST] 第三步：本地保存完成');
+                
+                // 第四步：模拟云端保存
+                if (collaborationEnabled && supabase) {
+                    const cloudData = {
+                        title: `${testRequest.arc} - ${testRequest.cohort} - ${testRequest.target}`,
+                        content: testRequest.content,
+                        date: testRequest.sendDate,
+                        time: '09:00:00',
+                        status: 'pending',
+                        contact: testRequest.submitter,
+                        email: testRequest.email,
+                        location: testRequest.teamDomain || 'Online',
+                        images: testRequest.images,
+                        created_at: new Date().toISOString()
+                    };
+                    
+                    console.log('[FULL_TEST] 第四步：开始云端保存');
+                    const { data, error } = await supabase.from('requests').insert([cloudData]);
+                    
+                    if (error) {
+                        console.error('[FULL_TEST] 云端保存失败:', error);
+                    } else {
+                        console.log('[FULL_TEST] 第四步：云端保存完成');
+                    }
+                }
+                
+                // 第五步：刷新界面
+                loadPendingRequests();
+                generateCalendar();
+                console.log('[FULL_TEST] 第五步：界面刷新完成');
+                
+                // 第六步：验证结果
+                const savedRequest = requests.find(r => r.id === testRequest.id);
+                if (savedRequest && savedRequest.images && savedRequest.images.length > 0) {
+                    console.log('[FULL_TEST] ✅ 测试成功：请求已保存且包含图片数据');
+                    
+                    alert(`✅ 完整的用户图片上传测试成功！\n\n测试结果：\n• 请求ID: ${testRequest.id}\n• 图片数量: ${savedRequest.images.length}\n• 图片名称: ${savedRequest.images.map(img => img.name).join(', ')}\n\n请切换到"👨‍💼 管理员审核"页面查看图片是否正常显示。\n\n如果图片显示正常，说明用户图片上传功能完全正常！`);
+                } else {
+                    console.error('[FULL_TEST] ❌ 测试失败：请求保存后图片数据丢失');
+                    alert('❌ 测试失败：请求保存后图片数据丢失');
+                }
+                
+            } catch (error) {
+                console.error('[FULL_TEST] 测试过程中出现异常:', error);
+                alert('❌ 测试过程中出现异常: ' + error.message);
+            }
+        }
+        
+        // 模拟用户图片上传测试
+        function simulateUserImageUpload() {
+            // 创建多个测试图片数据
+            const testImages = [
+                {
+                    name: 'user-test-1.png',
+                    type: 'image/png',
+                    size: 150,
+                    data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChAI9jU77zgAAAABJRU5ErkJggg=='
+                },
+                {
+                    name: 'user-test-2.jpg',
+                    type: 'image/jpeg',
+                    size: 200,
+                    data: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwA/wA=='
+                }
+            ];
+            
+            // 模拟用户选择图片
+            selectedImages = [...testImages];
+            
+            // 更新预览
+            const preview = document.getElementById('imagePreview');
+            if (preview) {
+                preview.innerHTML = '';
+                selectedImages.forEach((img, index) => {
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'preview-item';
+                    previewItem.innerHTML = `
+                        <img src="${img.data}" alt="${img.name}">
+                        <button type="button" class="remove-image" onclick="removeImage(${index})">×</button>
+                    `;
+                    preview.appendChild(previewItem);
+                });
+            }
+            
+            console.log('[SIMULATE_UPLOAD] 模拟用户图片上传完成:', selectedImages);
+            alert(`✅ 模拟用户图片上传完成！\n\n已选择 ${selectedImages.length} 张图片：\n${selectedImages.map((img, i) => `${i+1}. ${img.name} (${img.type})`).join('\n')}\n\n现在可以填写表单并提交，然后在管理员审核页面查看图片是否正常显示。`);
         }
         
         // 创建带图片的测试请求
@@ -4046,15 +4224,37 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             selectedImages = [];
             
             if (input.files) {
+                console.log(`[IMAGE_UPLOAD] 开始处理 ${input.files.length} 个文件`);
+                
                 Array.from(input.files).forEach((file, index) => {
-                    if (index >= 5) return; // 最多5张图片
+                    if (index >= 5) {
+                        console.warn(`[IMAGE_UPLOAD] 跳过第 ${index + 1} 个文件，最多支持5张图片`);
+                        return; // 最多5张图片
+                    }
+                    
+                    console.log(`[IMAGE_UPLOAD] 处理文件 ${index + 1}:`, {
+                        name: file.name,
+                        type: file.type,
+                        size: file.size
+                    });
                     
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        selectedImages.push({
+                        const imageData = {
                             name: file.name,
-                            data: e.target.result,
-                            size: file.size
+                            type: file.type,  // 添加文件类型
+                            size: file.size,
+                            data: e.target.result
+                        };
+                        
+                        selectedImages.push(imageData);
+                        
+                        console.log(`[IMAGE_UPLOAD] 图片 ${file.name} 处理完成:`, {
+                            name: imageData.name,
+                            type: imageData.type,
+                            size: imageData.size,
+                            dataLength: imageData.data.length,
+                            dataPreview: imageData.data.substring(0, 50) + '...'
                         });
                         
                         const previewItem = document.createElement('div');
@@ -4065,29 +4265,55 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         `;
                         preview.appendChild(previewItem);
                     };
+                    
+                    reader.onerror = function(error) {
+                        console.error(`[IMAGE_UPLOAD] 读取文件 ${file.name} 失败:`, error);
+                        alert(`❌ 读取图片 ${file.name} 失败，请重试`);
+                    };
+                    
                     reader.readAsDataURL(file);
                 });
+                
+                console.log(`[IMAGE_UPLOAD] 图片上传处理完成，共 ${Math.min(input.files.length, 5)} 个文件`);
+            } else {
+                console.log('[IMAGE_UPLOAD] 没有选择文件');
             }
         }
 
-        // 移除图片
+        // 移除图片 - 增强版本
         function removeImage(index) {
-            selectedImages.splice(index, 1);
-            const input = document.getElementById('images');
-            input.value = '';
-            document.getElementById('imagePreview').innerHTML = '';
+            console.log(`[IMAGE_REMOVE] 移除图片索引: ${index}, 当前图片数量: ${selectedImages.length}`);
             
-            // 重新预览剩余图片
-            if (selectedImages.length > 0) {
-                selectedImages.forEach((img, i) => {
-                    const previewItem = document.createElement('div');
-                    previewItem.className = 'preview-item';
-                    previewItem.innerHTML = `
-                        <img src="${img.data}" alt="${img.name}">
-                        <button type="button" class="remove-image" onclick="removeImage(${i})">×</button>
-                    `;
-                    document.getElementById('imagePreview').appendChild(previewItem);
-                });
+            if (index >= 0 && index < selectedImages.length) {
+                const removedImage = selectedImages[index];
+                console.log(`[IMAGE_REMOVE] 移除图片: ${removedImage.name}`);
+                
+                selectedImages.splice(index, 1);
+                
+                // 清空文件输入和预览
+                const input = document.getElementById('images');
+                input.value = '';
+                const preview = document.getElementById('imagePreview');
+                preview.innerHTML = '';
+                
+                // 重新预览剩余图片
+                if (selectedImages.length > 0) {
+                    console.log(`[IMAGE_REMOVE] 重新预览剩余 ${selectedImages.length} 张图片`);
+                    
+                    selectedImages.forEach((img, i) => {
+                        const previewItem = document.createElement('div');
+                        previewItem.className = 'preview-item';
+                        previewItem.innerHTML = `
+                            <img src="${img.data}" alt="${img.name}">
+                            <button type="button" class="remove-image" onclick="removeImage(${i})">×</button>
+                        `;
+                        preview.appendChild(previewItem);
+                    });
+                } else {
+                    console.log('[IMAGE_REMOVE] 所有图片已移除');
+                }
+            } else {
+                console.error(`[IMAGE_REMOVE] 无效的图片索引: ${index}`);
             }
         }
 
@@ -4260,10 +4486,20 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         contact: request.submitter,
                         email: request.email,
                         location: request.teamDomain || 'Online', // 添加location字段
+                        images: request.images || [], // 包含图片数据
                         created_at: new Date().toISOString()
                     };
                     
-                    console.log('[SUBMIT] 准备保存的云端数据:', cloudData);
+                    console.log('[SUBMIT] 准备保存的云端数据:', {
+                        ...cloudData,
+                        images: cloudData.images.map(img => ({
+                            name: img.name,
+                            type: img.type,
+                            size: img.size,
+                            hasData: !!img.data,
+                            dataLength: img.data ? img.data.length : 0
+                        }))
+                    });
                     
                     // 强制等待保存完成
                     const savePromise = supabase.from('requests').insert([cloudData]);
@@ -5529,6 +5765,9 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         window.createSampleEvent = createSampleEvent;
         window.checkImageData = checkImageData;
         window.createTestRequestWithImage = createTestRequestWithImage;
+        window.testUserImageUpload = testUserImageUpload;
+        window.simulateUserImageUpload = simulateUserImageUpload;
+        window.fullUserImageTest = fullUserImageTest;
         window.verifyPendingSave = verifyPendingSave;
         window.clearAllLocalData = clearAllLocalData;
         window.checkDataStatus = checkDataStatus;
