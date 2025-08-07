@@ -1537,7 +1537,7 @@
             }
         }
         
-        // 加载云端数据
+        // 加载云端数据 - 同步后自动清理本地数据版本
         async function loadCloudData() {
             if (!collaborationEnabled || !supabase) {
                 console.log('[CLOUD] 协同功能未启用，跳过云端加载');
@@ -1548,7 +1548,7 @@
             updateCollabStatus('🔄 正在同步云端数据...');
             
             try {
-                // 加载请求数据
+                // 1. 加载云端请求数据
                 const { data: requestsData, error: requestsError } = await supabase
                     .from('requests')
                     .select('*')
@@ -1556,77 +1556,9 @@
                 
                 if (requestsError) throw requestsError;
                 
-                console.log(`[CLOUD] 加载到 ${requestsData.length} 个请求`);
+                console.log(`[CLOUD] 从云端加载到 ${requestsData.length} 个请求`);
                 
-                // 转换数据格式以匹配原有结构
-                const cloudRequests = requestsData.map(item => ({
-                    id: item.id,
-                    content: item.content,
-                    arc: item.title.split(' - ')[0] || 'N/A',
-                    cohort: item.title.split(' - ')[1] || 'N/A',
-                    target: item.title.split(' - ')[2] || 'unknown',
-                    sendDate: item.date,
-                    submitter: item.contact,
-                    teamDomain: item.location,
-                    email: item.email,
-                    notes: item.content,
-                    images: [],
-                    status: item.status,
-                    submitTime: new Date(item.created_at).toLocaleString('zh-CN')
-                }));
-                
-                // 智能合并云端和本地数据，优先保留最新数据
-                console.log(`[CLOUD] 云端请求数据: ${cloudRequests.length} 个`);
-                console.log(`[CLOUD] 本地请求数据: ${requests.length} 个`);
-                
-                // 创建合并后的数据集
-                const mergedRequests = [];
-                const processedIds = new Set();
-                
-                // 1. 首先添加本地数据（优先级更高，因为可能包含刚提交的数据）
-                requests.forEach(localReq => {
-                    mergedRequests.push(localReq);
-                    processedIds.add(localReq.id);
-                });
-                
-                // 2. 然后添加云端独有的数据
-                cloudRequests.forEach(cloudReq => {
-                    if (!processedIds.has(cloudReq.id)) {
-                        mergedRequests.push(cloudReq);
-                        processedIds.add(cloudReq.id);
-                    } else {
-                        // 如果ID相同，比较时间戳，保留更新的数据
-                        const localIndex = mergedRequests.findIndex(r => r.id === cloudReq.id);
-                        if (localIndex !== -1) {
-                            const localReq = mergedRequests[localIndex];
-                            const localTime = new Date(localReq.submitTime || '1970-01-01');
-                            const cloudTime = new Date(cloudReq.submitTime || '1970-01-01');
-                            
-                            if (cloudTime > localTime) {
-                                console.log(`[CLOUD] 云端数据更新，替换本地数据: ${cloudReq.id}`);
-                                mergedRequests[localIndex] = cloudReq;
-                            }
-                        }
-                    }
-                });
-                
-                requests = mergedRequests;
-                
-                console.log(`[CLOUD] 合并后请求数据: ${requests.length} 个 (待审核: ${requests.filter(r => r.status === 'pending').length})`);
-                
-                // 基础去重处理
-                requests = requests.filter((request, index, self) => {
-                    const firstIndex = self.findIndex(r => r.id === request.id);
-                    if (firstIndex !== index) {
-                        console.log(`[CLOUD] 发现重复ID请求: ${request.id}, 已过滤`);
-                        return false;
-                    }
-                    return true;
-                });
-                
-                console.log(`[CLOUD] 使用云端请求数据，去重后共 ${requests.length} 个请求`);
-                
-                // 加载事件数据
+                // 2. 加载云端事件数据
                 const { data: eventsData, error: eventsError } = await supabase
                     .from('events')
                     .select('*')
@@ -1634,68 +1566,88 @@
                 
                 if (eventsError) throw eventsError;
                 
-                console.log(`[CLOUD] 加载到 ${eventsData.length} 个事件`);
+                console.log(`[CLOUD] 从云端加载到 ${eventsData.length} 个事件`);
                 
-                const cloudEvents = eventsData.map(item => ({
-                    id: item.id,
-                    title: item.title,
-                    date: item.date,
-                    target: item.title.split(' - ')[2] || 'unknown',
-                    arc: item.title.split(' - ')[0] || 'N/A',
-                    cohort: item.title.split(' - ')[1] || 'N/A',
-                    content: item.content,
-                    submitter: item.contact,
-                    teamDomain: item.location,
-                    notes: item.content,
-                    images: []
-                }));
+                // 3. 清理本地数据，完全使用云端数据
+                console.log('[CLOUD] 🧹 清理本地数据，使用云端数据替换...');
                 
-                // 完全使用云端数据，避免重复
-                approvedEvents = cloudEvents;
-                
-                // 额外的去重处理，确保绝对唯一
-                approvedEvents = approvedEvents.filter((event, index, self) => {
-                    // 按ID去重
-                    const firstIndex = self.findIndex(e => e.id === event.id);
-                    if (firstIndex !== index) {
-                        console.log(`[CLOUD] 发现重复ID事件: ${event.id}, 已过滤`);
-                        return false;
-                    }
-                    
-                    // 按关键信息去重
-                    const duplicateIndex = self.findIndex(e => 
-                        e.date === event.date && 
-                        e.content === event.content && 
-                        e.arc === event.arc && 
-                        e.cohort === event.cohort
-                    );
-                    if (duplicateIndex !== index) {
-                        console.log(`[CLOUD] 发现重复内容事件: ${event.title}, 已过滤`);
-                        return false;
-                    }
-                    
-                    return true;
+                // 转换云端请求数据格式
+                const cloudRequests = requestsData.map(item => {
+                    const titleParts = (item.title || '').split(' - ');
+                    return {
+                        id: item.id,
+                        content: item.content || '',
+                        arc: titleParts[0] || 'N/A',
+                        cohort: titleParts[1] || 'N/A',
+                        target: titleParts[2] || 'unknown',
+                        sendDate: item.date || new Date().toISOString().split('T')[0],
+                        submitter: item.contact || 'Unknown',
+                        teamDomain: item.location || 'Online',
+                        email: item.email || '',
+                        images: item.images || [],
+                        status: item.status || 'pending',
+                        submitTime: new Date(item.created_at || Date.now()).toLocaleString('zh-CN'),
+                        // 审核相关字段
+                        approveTime: item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN') : null,
+                        rejectReason: item.rejection_reason || '',
+                        rejectTime: item.updated_at && item.status === 'rejected' ? new Date(item.updated_at).toLocaleString('zh-CN') : null
+                    };
                 });
                 
-                console.log(`[CLOUD] 使用云端事件数据，去重后共 ${approvedEvents.length} 个事件`);
+                // 转换云端事件数据格式
+                const cloudEvents = eventsData.map(item => {
+                    const titleParts = (item.title || '').split(' - ');
+                    return {
+                        id: item.id,
+                        title: item.title || 'N/A',
+                        date: item.date || new Date().toISOString().split('T')[0],
+                        target: titleParts[2] || 'unknown',
+                        arc: titleParts[0] || 'N/A',
+                        cohort: titleParts[1] || 'N/A',
+                        content: item.content || '',
+                        submitter: item.contact || 'Unknown',
+                        teamDomain: item.location || 'Online',
+                        notes: item.content || '',
+                        images: item.images || []
+                    };
+                });
                 
-                // 更新本地存储以保持同步
+                // 4. 完全替换本地数据
+                const oldRequestsCount = requests.length;
+                const oldEventsCount = approvedEvents.length;
+                
+                requests = cloudRequests;
+                approvedEvents = cloudEvents;
+                
+                console.log(`[CLOUD] ✅ 数据替换完成:`);
+                console.log(`[CLOUD] 请求数据: ${oldRequestsCount} → ${requests.length} (${requests.filter(r => r.status === 'pending').length} 个待审核)`);
+                console.log(`[CLOUD] 事件数据: ${oldEventsCount} → ${approvedEvents.length}`);
+                
+                // 5. 更新本地存储
                 localStorage.setItem('massRequests', JSON.stringify(requests));
                 localStorage.setItem('approvedEvents', JSON.stringify(approvedEvents));
                 
-                updateCollabStatus(`✅ 数据同步完成！${requests.length} 个请求，${approvedEvents.length} 个事件`, 'success');
+                console.log('[CLOUD] 📱 本地存储已更新');
                 
-                // 刷新界面
+                // 6. 显示同步结果
+                updateCollabStatus(`✅ 云端同步完成！${requests.length} 个请求，${approvedEvents.length} 个事件`, 'success');
+                
+                // 7. 刷新界面显示
                 generateCalendar();
                 loadPendingRequests();
                 
+                console.log('[CLOUD] 🎉 云端数据同步完成，本地数据已清理并替换');
+                
             } catch (error) {
                 console.error('[CLOUD] 加载云端数据失败:', error);
-                updateCollabStatus('❌ 云端数据加载失败，使用本地数据', 'error');
+                updateCollabStatus('❌ 云端数据同步失败，保持本地数据', 'error');
+                
+                // 同步失败时不清理本地数据，保持原有数据
+                console.log('[CLOUD] ⚠️ 同步失败，保持本地数据不变');
             }
         }
         
-        // 手动同步数据
+        // 手动同步数据 - 自动清理本地数据版本
         async function manualSync() {
             console.log('[MANUAL] 手动同步触发');
             
@@ -1713,14 +1665,16 @@
                 updateCollabStatus('⏳ 正在手动同步数据...', 'info');
                 isRefreshing = true;
                 
+                console.log('[MANUAL] 开始手动同步，将清理本地数据并使用云端数据');
+                
                 await loadCloudData();
                 
                 // 同步完成后刷新界面
                 generateCalendar();
                 loadPendingRequests();
                 
-                updateCollabStatus('✅ 手动同步完成！', 'success');
-                console.log('[MANUAL] 手动同步完成');
+                updateCollabStatus('✅ 手动同步完成！本地数据已更新', 'success');
+                console.log('[MANUAL] 手动同步完成，本地数据已清理并替换为云端数据');
                 
             } catch (error) {
                 console.error('[MANUAL] 手动同步失败:', error);
@@ -1893,19 +1847,27 @@
         }
         
         // 清理所有本地数据
+        // 清理所有本地数据 - 自动同步版本
         function clearAllLocalData() {
             const confirmMessage = `⚠️ 确认清理所有本地数据？
             
 这将删除：
-• 所有待审核请求
-• 所有已批准事件  
-• 所有审核记录
-• 用户设置和缓存
+• 所有本地请求数据 (${requests.length} 条)
+• 所有本地事件数据 (${approvedEvents.length} 条)
+• 所有审核记录和用户设置
+• 本地缓存和状态
+
+清理后系统将完全依赖云端数据。
+建议清理后立即点击"☁️ 手动同步"获取最新云端数据。
 
 此操作不可恢复！`;
             
             if (confirm(confirmMessage)) {
                 console.log('[CLEAR] 开始清理所有本地数据');
+                
+                // 记录清理前的数据量
+                const beforeRequests = requests.length;
+                const beforeEvents = approvedEvents.length;
                 
                 // 清理localStorage中的所有相关数据
                 const keysToRemove = [
@@ -1919,7 +1881,7 @@
                 
                 keysToRemove.forEach(key => {
                     localStorage.removeItem(key);
-                    console.log(`[CLEAR] 已清理: ${key}`);
+                    console.log(`[CLEAR] 已清理本地存储: ${key}`);
                 });
                 
                 // 清理内存中的数据
@@ -1931,20 +1893,26 @@
                 currentUserRole = 'requestor';
                 isOCMAuthenticated = false;
                 
+                console.log(`[CLEAR] ✅ 本地数据清理完成:`);
+                console.log(`[CLEAR] 请求数据: ${beforeRequests} → 0`);
+                console.log(`[CLEAR] 事件数据: ${beforeEvents} → 0`);
+                
                 // 刷新界面
                 generateCalendar();
                 loadPendingRequests();
                 loadAuditRecords();
                 updateUIForRole();
                 
-                alert('✅ 所有本地数据已清理完成！\n页面将刷新以应用更改。');
+                updateCollabStatus('✅ 本地数据已清理，建议立即手动同步', 'success');
+                
+                alert(`✅ 本地数据清理完成！\n\n清理统计：\n• 请求数据：${beforeRequests} 条\n• 事件数据：${beforeEvents} 条\n\n🔄 建议立即点击"☁️ 手动同步"获取最新云端数据\n\n页面将在2秒后刷新...`);
                 
                 // 刷新页面确保完全重置
                 setTimeout(() => {
                     window.location.reload();
-                }, 1000);
+                }, 2000);
                 
-                console.log('[CLEAR] 本地数据清理完成');
+                console.log('[CLEAR] 本地数据清理完成，页面即将刷新');
             }
         }
         
@@ -3657,7 +3625,8 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     
                     if (collaborationEnabled && supabase) {
                         console.log('[INIT] ✅ 协同功能已启用，pending请求将同步到云端');
-                        updateCollabStatus('✅ 协同功能已启用，支持多用户同步', 'success');
+                        console.log('[INIT] 🔄 注意：每次同步后本地数据将被云端数据完全替换');
+                        updateCollabStatus('✅ 协同功能已启用，支持云端数据同步', 'success');
                     } else {
                         console.warn('[INIT] ⚠️ 协同功能未启用，pending请求仅保存到本地');
                         updateCollabStatus('⚠️ 协同功能未启用，仅本地保存', 'warning');
