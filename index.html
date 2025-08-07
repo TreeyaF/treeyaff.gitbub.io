@@ -2084,7 +2084,7 @@
             }
         }
         
-        // 检查Supabase表结构
+        // 检查Supabase表结构 - 增强版本
         async function checkTableStructure() {
             if (!collaborationEnabled || !supabase) {
                 alert('❌ 协同功能未启用，无法检查表结构');
@@ -2111,12 +2111,29 @@
                 
                 if (data && data.length > 0) {
                     const fields = Object.keys(data[0]);
-                    const fieldList = fields.map(field => `• ${field}: ${typeof data[0][field]}`).join('\n');
+                    const fieldList = fields.map(field => {
+                        const value = data[0][field];
+                        const type = typeof value;
+                        return `• ${field}: ${type} (示例: ${value})`;
+                    }).join('\n');
                     
-                    alert(`📋 requests表结构检查完成！\n\n字段列表：\n${fieldList}\n\n注意：\n• 带有NOT NULL约束的字段必须提供值\n• 检查字段名称是否匹配\n• 确认数据类型是否正确`);
+                    // 检查关键字段
+                    const hasRejectionReason = fields.includes('rejection_reason');
+                    const hasRejectReason = fields.includes('reject_reason');
+                    const hasStatus = fields.includes('status');
+                    
+                    let statusInfo = '\n\n字段状态检查：\n';
+                    statusInfo += `• status字段: ${hasStatus ? '✅ 存在' : '❌ 不存在'}\n`;
+                    statusInfo += `• rejection_reason字段: ${hasRejectionReason ? '✅ 存在' : '❌ 不存在'}\n`;
+                    statusInfo += `• reject_reason字段: ${hasRejectReason ? '✅ 存在' : '❌ 不存在'}\n`;
+                    
+                    if (!hasRejectionReason && !hasRejectReason) {
+                        statusInfo += '\n⚠️ 注意：没有找到拒绝原因字段，拒绝功能将只更新status字段';
+                    }
+                    
+                    alert(`📋 requests表结构检查完成！\n\n字段列表：\n${fieldList}${statusInfo}`);
                 } else {
-                    // 表为空，尝试插入一个测试记录来发现必需字段
-                    alert('📋 requests表为空，无法获取字段信息\n\n建议：\n1. 先运行"🧪 测试Pending"来发现必需字段\n2. 或者在Supabase控制台查看表结构\n3. 确认所有NOT NULL字段都有默认值');
+                    alert('📋 requests表为空，无法获取字段信息\n\n建议：\n1. 先提报一个事件\n2. 或者在Supabase控制台查看表结构\n3. 确认所有必需字段都存在');
                 }
                 
                 updateCollabStatus('✅ 表结构检查完成', 'success');
@@ -2198,9 +2215,10 @@
                 // 执行拒绝操作
                 const updateData = {
                     status: 'rejected',
-                    rejection_reason: testReason,
                     updated_at: new Date().toISOString()
                 };
+                
+                // 注意：不使用rejection_reason字段，因为表中不存在
                 
                 console.log('[TEST_REJECT] 执行拒绝操作:', updateData);
                 
@@ -2239,7 +2257,7 @@
                     console.log('[TEST_REJECT] ✅ 拒绝功能测试完全成功');
                     updateCollabStatus('✅ 拒绝功能测试成功', 'success');
                     
-                    alert(`✅ 拒绝功能测试完全成功！\n\n测试结果：\n• 请求ID：${testRequest.id}\n• 原状态：pending\n• 新状态：${verifyData.status}\n• 拒绝原因：${verifyData.rejection_reason}\n• 更新时间：${verifyData.updated_at}\n\n✅ 云端数据已正确更新！\n\n建议：让其他用户点击"☁️ 手动同步"查看结果`);
+                    alert(`✅ 拒绝功能测试完全成功！\n\n测试结果：\n• 请求ID：${testRequest.id}\n• 原状态：pending\n• 新状态：${verifyData.status}\n• 更新时间：${verifyData.updated_at}\n\n✅ 云端数据已正确更新！\n\n建议：让其他用户点击"☁️ 手动同步"查看结果`);
                 } else {
                     console.error('[TEST_REJECT] ❌ 验证失败：状态未正确更新');
                     updateCollabStatus('❌ 状态更新验证失败', 'error');
@@ -2281,8 +2299,7 @@
                 if (data && data.length > 0) {
                     const summary = data.map((item, index) => {
                         const date = new Date(item.updated_at || item.created_at).toLocaleString('zh-CN');
-                        const reason = item.rejection_reason || '无原因';
-                        return `${index + 1}. ${item.title}\n   拒绝时间: ${date}\n   拒绝原因: ${reason}`;
+                        return `${index + 1}. ${item.title}\n   拒绝时间: ${date}\n   状态: ${item.status}`;
                     }).join('\n\n');
                     
                     updateCollabStatus('✅ 云端拒绝数据检查完成', 'success');
@@ -4346,9 +4363,11 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         try {
                             const updateData = {
                                 status: 'rejected',
-                                rejection_reason: reason,
                                 updated_at: new Date().toISOString()
                             };
+                            
+                            // 注意：不使用rejection_reason字段，因为表中可能不存在
+                            // 拒绝原因可以记录在content字段或其他现有字段中
                             
                             console.log(`[REJECT] 更新数据:`, updateData);
                             
@@ -4368,7 +4387,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                             // 验证更新结果
                             const { data: verifyData, error: verifyError } = await supabase
                                 .from('requests')
-                                .select('status, rejection_reason')
+                                .select('status')
                                 .eq('id', request.id)
                                 .single();
                             
