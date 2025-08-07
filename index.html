@@ -1034,6 +1034,9 @@
                 <button onclick="checkPendingInCloud()" style="background: #8b5cf6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🔍 检查云端
                 </button>
+                <button onclick="testRejectSync()" style="background: #ef4444; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🧪 测试拒绝
+                </button>
                 <button onclick="clearAllLocalData()" style="background: #dc2626; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🗑️ 清理数据
                 </button>
@@ -2152,6 +2155,48 @@
                 }
             } catch (error) {
                 console.error('[VERIFY] 验证异常:', error);
+            }
+        }
+        
+        // 简单测试拒绝功能
+        async function testRejectSync() {
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 协同功能未启用');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('requests')
+                    .select('*')
+                    .eq('status', 'pending')
+                    .limit(1);
+                
+                if (error || !data || data.length === 0) {
+                    alert('📋 没有找到pending请求进行测试');
+                    return;
+                }
+                
+                const testRequest = data[0];
+                const testReason = '测试拒绝 - ' + new Date().toLocaleString('zh-CN');
+                
+                const { error: updateError } = await supabase
+                    .from('requests')
+                    .update({
+                        status: 'rejected',
+                        rejection_reason: testReason,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', testRequest.id);
+                
+                if (updateError) {
+                    alert('❌ 测试失败: ' + updateError.message);
+                } else {
+                    alert('✅ 拒绝功能测试成功！\n\n请让其他用户手动同步查看结果。');
+                }
+                
+            } catch (err) {
+                alert('❌ 测试异常: ' + err.message);
             }
         }
         
@@ -4079,32 +4124,52 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     request.status = 'approved';
                     request.approveTime = approveTime;
                     
-                    // 同步审核状态到云端
+                    // 同步审核状态到云端 - 简化版本
                     if (collaborationEnabled && supabase) {
-                        const statusSuccess = await saveApprovalToCloud(request.id, 'approved');
-                        console.log(`[APPROVE] 请求 ${request.id} 状态同步:`, statusSuccess ? '成功' : '失败');
-                        
-                        // 创建事件记录到云端
-                        const eventData = {
-                            title: `${request.arc} - ${request.cohort} - ${request.target}`,
-                            content: request.content,
-                            date: request.sendDate,
-                            time: '09:00:00',
-                            location: request.teamDomain || 'Online',
-                            contact: request.submitter,
-                            email: request.email,
-                            images: request.images || []
-                        };
+                        console.log(`[APPROVE] 开始同步批准状态到云端: ${request.id}`);
                         
                         try {
-                            const { error } = await supabase.from('events').insert([eventData]);
-                            if (error) {
-                                console.warn('[APPROVE] 事件云端保存失败:', error);
+                            // 更新请求状态
+                            const updateData = {
+                                status: 'approved',
+                                updated_at: new Date().toISOString()
+                            };
+                            
+                            const { error: updateError } = await supabase
+                                .from('requests')
+                                .update(updateData)
+                                .eq('id', request.id);
+                            
+                            if (updateError) {
+                                console.error(`[APPROVE] 状态更新失败 (${request.id}):`, updateError);
                             } else {
-                                console.log('[APPROVE] 事件已同步到云端');
+                                console.log(`[APPROVE] 状态更新成功 (${request.id})`);
                             }
-                        } catch (error) {
-                            console.warn('[APPROVE] 事件云端保存异常:', error);
+                            
+                            // 创建事件记录
+                            const eventData = {
+                                title: `${request.arc} - ${request.cohort} - ${request.target}`,
+                                content: request.content,
+                                date: request.sendDate,
+                                time: '09:00:00',
+                                location: request.teamDomain || 'Online',
+                                contact: request.submitter,
+                                email: request.email,
+                                images: request.images || []
+                            };
+                            
+                            const { error: eventError } = await supabase
+                                .from('events')
+                                .insert([eventData]);
+                            
+                            if (eventError) {
+                                console.error(`[APPROVE] 事件创建失败 (${request.id}):`, eventError);
+                            } else {
+                                console.log(`[APPROVE] 事件创建成功 (${request.id})`);
+                            }
+                            
+                        } catch (err) {
+                            console.error(`[APPROVE] 云端操作异常 (${request.id}):`, err);
                         }
                     }
                     
@@ -4171,10 +4236,30 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     request.rejectReason = reason;
                     request.rejectTime = rejectTime;
                     
-                    // 同步拒绝状态到云端
+                    // 同步拒绝状态到云端 - 简化版本
                     if (collaborationEnabled && supabase) {
-                        const statusSuccess = await saveApprovalToCloud(request.id, 'rejected', reason);
-                        console.log(`[REJECT] 请求 ${request.id} 状态同步:`, statusSuccess ? '成功' : '失败');
+                        console.log(`[REJECT] 开始同步拒绝状态到云端: ${request.id}`);
+                        
+                        try {
+                            const updateData = {
+                                status: 'rejected',
+                                rejection_reason: reason,
+                                updated_at: new Date().toISOString()
+                            };
+                            
+                            const { error } = await supabase
+                                .from('requests')
+                                .update(updateData)
+                                .eq('id', request.id);
+                            
+                            if (error) {
+                                console.error(`[REJECT] 云端状态更新失败 (${request.id}):`, error);
+                            } else {
+                                console.log(`[REJECT] 云端状态更新成功 (${request.id})`);
+                            }
+                        } catch (err) {
+                            console.error(`[REJECT] 云端状态更新异常 (${request.id}):`, err);
+                        }
                     }
                 }
             }
@@ -4978,6 +5063,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         window.testCloudConnection = testCloudConnection;
         window.checkTableStructure = checkTableStructure;
         window.checkPendingInCloud = checkPendingInCloud;
+        window.testRejectSync = testRejectSync;
         window.verifyPendingSave = verifyPendingSave;
         window.clearAllLocalData = clearAllLocalData;
         window.checkDataStatus = checkDataStatus;
