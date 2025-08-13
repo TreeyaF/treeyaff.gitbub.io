@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCM Blurb 提报 - 协同合作版</title>
+    <title>OCM Blurb 提报 - 优化复制功能V4</title>
     
     <!-- Supabase SDK for collaboration -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -800,23 +800,6 @@
             border-left: 4px solid #007bff;
         }
 
-        .copy-btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            margin-left: 10px;
-            transition: all 0.3s ease;
-        }
-
-        .copy-btn:hover {
-            background: #0056b3;
-            transform: translateY(-1px);
-        }
-
         /* 审核记录样式 */
         .stats-summary {
             display: flex;
@@ -911,25 +894,212 @@
             border-left: 4px solid #007bff;
         }
 
-        .copy-btn {
-            background: #007bff;
+        /* 删除按钮样式 */
+        .delete-event-btn {
+            background: rgba(220, 53, 69, 0.9);
             color: white;
             border: none;
-            padding: 2px 6px;
             border-radius: 3px;
-            font-size: 11px;
+            padding: 2px 6px;
+            font-size: 10px;
             cursor: pointer;
             transition: all 0.3s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 20px;
-            height: 20px;
+            min-width: 18px;
+            height: 18px;
+            margin-left: 2px;
         }
 
-        .copy-btn:hover {
-            background: #0056b3;
-            transform: translateY(-1px);
+        .delete-event-btn:hover {
+            background: rgba(200, 35, 51, 1);
+            transform: scale(1.1);
+        }
+
+        /* 删除确认模态框样式 */
+        .delete-confirm-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        }
+
+        .delete-confirm-content {
+            background: white;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                transform: scale(0.8) translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .delete-confirm-header {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px 15px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .delete-confirm-header h3 {
+            margin: 0;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .delete-confirm-body {
+            padding: 30px;
+        }
+
+        .event-info-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .event-info-row {
+            display: flex;
+            margin-bottom: 10px;
+            align-items: flex-start;
+        }
+
+        .event-info-label {
+            font-weight: 600;
+            color: #495057;
+            min-width: 80px;
+            margin-right: 10px;
+        }
+
+        .event-info-value {
+            flex: 1;
+            color: #6c757d;
+        }
+
+        .delete-reason-input {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .delete-reason-input:focus {
+            outline: none;
+            border-color: #dc3545;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        }
+
+        .delete-reason-input.error {
+            border-color: #dc3545;
+            background-color: #fff5f5;
+        }
+
+        .delete-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .delete-warning-icon {
+            font-size: 20px;
+            color: #856404;
+        }
+
+        .delete-warning-text {
+            color: #856404;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .delete-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+
+        .delete-cancel-btn {
+            padding: 12px 24px;
+            border: 2px solid #6c757d;
+            background: white;
+            color: #6c757d;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .delete-cancel-btn:hover {
+            background: #6c757d;
+            color: white;
+        }
+
+        .delete-confirm-btn {
+            padding: 12px 24px;
+            border: 2px solid #dc3545;
+            background: #dc3545;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .delete-confirm-btn:hover {
+            background: #c82333;
+            border-color: #c82333;
+        }
+
+        .delete-confirm-btn:disabled {
+            background: #6c757d;
+            border-color: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
         }
 
         /* 响应式设计 */
@@ -992,7 +1162,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>OCM Blurb 提报 - 协同合作版</h1>
+            <h1>OCM Blurb 提报 - 优化复制功能V4</h1>
             
             <!-- 用户角色选择 -->
             <div id="userRoleSelector" style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 5px;">
@@ -1028,8 +1198,20 @@
                 <button onclick="testCloudConnection()" style="background: #059669; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🔗 测试连接
                 </button>
-                <button onclick="diagnoseSyncIssues()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🔍 诊断同步
+                <button onclick="forceResetDeleteButton()" style="background: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🔧 重置删除按钮
+                </button>
+                <button onclick="debugCopyFunction()" style="background: #17a2b8; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🔍 调试复制功能
+                </button>
+                <button onclick="testCopyFunction()" style="background: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🧪 测试复制
+                </button>
+                <button onclick="createTestEventForCopy()" style="background: #fd7e14; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    ➕ 创建测试事件
+                </button>
+                <button onclick="forceTestCopy()" style="background: #dc3545; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
+                    🚀 强制测试复制
                 </button>
                 <button onclick="checkTableStructure()" style="background: #0891b2; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     📋 检查表结构
@@ -1342,6 +1524,60 @@
             </div>
             <div class="modal-body">
                 <div id="eventDetails"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除事件确认模态框 -->
+    <div id="deleteEventModal" class="delete-confirm-modal" style="display: none;">
+        <div class="delete-confirm-content">
+            <div class="delete-confirm-header">
+                <h3>🗑️ 删除事件</h3>
+                <button class="close" onclick="closeDeleteEventModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='none'">&times;</button>
+            </div>
+            <div class="delete-confirm-body">
+                <div class="event-info-card">
+                    <h4 style="color: #dc3545; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                        ⚠️ 确认删除以下事件
+                    </h4>
+                    <div id="deleteEventInfo"></div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #495057;">
+                        删除原因 <span style="color: #dc3545;">*</span>
+                    </label>
+                    <textarea 
+                        id="deleteEventReason" 
+                        class="delete-reason-input"
+                        placeholder="请详细说明删除此事件的原因，例如：&#10;• 内容有误需要重新发布&#10;• 时间安排发生变更&#10;• 活动取消或延期&#10;• 其他具体原因..."
+                        maxlength="500"
+                    ></textarea>
+                    <div class="error-message" id="deleteReasonError">请输入删除原因</div>
+                    <div style="text-align: right; font-size: 12px; color: #6c757d; margin-top: 5px;">
+                        <span id="reasonCharCount">0</span>/500 字符
+                    </div>
+                </div>
+
+                <div class="delete-warning">
+                    <div class="delete-warning-icon">⚠️</div>
+                    <div class="delete-warning-text">
+                        <strong>重要提醒：</strong><br>
+                        • 删除后该事件将从日历中移除<br>
+                        • 删除记录将保存在审核记录中<br>
+                        • 此操作无法撤销，请谨慎操作<br>
+                        • 相关人员将收到删除通知
+                    </div>
+                </div>
+
+                <div class="delete-actions">
+                    <button class="delete-cancel-btn" onclick="closeDeleteEventModal()">
+                        取消
+                    </button>
+                    <button class="delete-confirm-btn" id="confirmDeleteEventBtn" onclick="confirmDeleteEvent()">
+                        确认删除
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -4407,21 +4643,8 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         <div class="${eventClass}">
                             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
                                 <span onclick="showEventDetails(${JSON.stringify(event).replace(/"/g, '&quot;')})" 
-                                      style="cursor: pointer; flex: 1; overflow: hidden; text-overflow: ellipsis;">${event.title}</span>
-                                <div style="display: flex; gap: 2px;">
-                                    <button onclick="event.stopPropagation(); copyEventContent(${event.id})" 
-                                            id="copy-event-${event.id}" 
-                                            style="background: rgba(255,255,255,0.8); border: none; border-radius: 2px; 
-                                                   padding: 1px 3px; font-size: 10px; cursor: pointer;"
-                                            title="复制内容">📋</button>
-                                    ${currentUserRole === 'ocm_poc' && isOCMAuthenticated ? `
-                                    <button onclick="event.stopPropagation(); deleteEventWithPermission(${event.id})" 
-                                            id="delete-event-${event.id}" 
-                                            style="background: rgba(220,53,69,0.8); color: white; border: none; border-radius: 2px; 
-                                                   padding: 1px 3px; font-size: 10px; cursor: pointer;"
-                                            title="删除内容">🗑️</button>
-                                    ` : ''}
-                                </div>
+                                      style="cursor: pointer; flex: 1; overflow: hidden; text-overflow: ellipsis; padding: 2px;"
+                                      title="点击查看详情">${event.title}</span>
                             </div>
                         </div>
                     `;
@@ -4434,14 +4657,9 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     eventsHTML += `
                         <div class="event pending-event" title="待审核：${event.content}">
                             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis;">${title}</span>
+                                <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; padding: 2px;">${title}</span>
                                 <div style="display: flex; gap: 2px; align-items: center;">
-                                    <span style="font-size: 10px; opacity: 0.7;">⏳</span>
-                                    <button onclick="event.stopPropagation(); deletePendingRequest(${event.id})" 
-                                            id="delete-pending-${event.id}" 
-                                            style="background: rgba(220,53,69,0.8); color: white; border: none; border-radius: 2px; 
-                                                   padding: 1px 3px; font-size: 10px; cursor: pointer;"
-                                            title="删除待审核内容">🗑️</button>
+                                    <span style="font-size: 10px; opacity: 0.7;" title="待审核状态">⏳</span>
                                 </div>
                             </div>
                         </div>
@@ -4542,6 +4760,41 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     }
                 });
             }
+            
+            // 添加删除事件相关的事件监听器
+            setTimeout(() => {
+                const deleteReasonInput = document.getElementById('deleteEventReason');
+                if (deleteReasonInput) {
+                    // 字符计数监听器
+                    deleteReasonInput.addEventListener('input', updateCharCount);
+                    
+                    // 输入时移除错误状态
+                    deleteReasonInput.addEventListener('input', function() {
+                        this.classList.remove('error');
+                        document.getElementById('deleteReasonError').style.display = 'none';
+                    });
+                    
+                    // ESC键关闭删除模态框
+                    document.addEventListener('keydown', function(e) {
+                        if (e.key === 'Escape') {
+                            const deleteModal = document.getElementById('deleteEventModal');
+                            if (deleteModal && deleteModal.style.display === 'flex') {
+                                closeDeleteEventModal();
+                            }
+                        }
+                    });
+                    
+                    // 点击模态框背景关闭
+                    const deleteModal = document.getElementById('deleteEventModal');
+                    if (deleteModal) {
+                        deleteModal.addEventListener('click', function(e) {
+                            if (e.target === this) {
+                                closeDeleteEventModal();
+                            }
+                        });
+                    }
+                }
+            }, 500);
         });
 
         // 图片预览功能
@@ -5350,6 +5603,16 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             const statusFilter = document.getElementById('statusFilter').value;
             console.log('[RECORDS] 状态筛选:', statusFilter);
             console.log('[RECORDS] 总请求数:', requests.length);
+            
+            // 显示所有请求的状态分布
+            const statusCounts = {
+                pending: requests.filter(r => r.status === 'pending').length,
+                approved: requests.filter(r => r.status === 'approved').length,
+                rejected: requests.filter(r => r.status === 'rejected').length,
+                deleted: requests.filter(r => r.status === 'deleted').length
+            };
+            console.log('[RECORDS] 状态分布:', statusCounts);
+            
             const arcFilter = document.getElementById('arcFilter').value;
             const cohortFilter = document.getElementById('cohortFilter').value;
             const idSearch = document.getElementById('idSearch').value.trim();
@@ -5365,17 +5628,35 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 return statusMatch && arcMatch && cohortMatch && idMatch && emailMatch;
             });
             
+            console.log('[RECORDS] 筛选后记录数:', filteredRequests.length);
+            
+            // 如果筛选删除状态，显示详细信息
+            if (statusFilter === 'deleted') {
+                const deletedRequests = filteredRequests.filter(r => r.status === 'deleted');
+                console.log('[RECORDS] 删除记录详情:', deletedRequests.map(r => ({
+                    id: r.id,
+                    deleteReason: r.deleteReason,
+                    deleteTime: r.deleteTime,
+                    deletedBy: r.deletedBy
+                })));
+            }
+            
             // 合并循环请求
             const mergedRequests = mergeRecurringRequests(filteredRequests);
             
             // 按提交时间倒序排列
-            mergedRequests.sort((a, b) => new Date(b.submitTime) - new Date(a.submitTime));
+            mergedRequests.sort((a, b) => {
+                const timeA = a.deleteTime || a.rejectTime || a.approveTime || a.submitTime || '0';
+                const timeB = b.deleteTime || b.rejectTime || b.approveTime || b.submitTime || '0';
+                return new Date(timeB) - new Date(timeA);
+            });
             
             if (mergedRequests.length === 0) {
                 let message = '暂无符合条件的记录';
                 if (idSearch) message = `未找到ID包含 "${idSearch}" 的记录`;
                 if (emailSearch) message = `未找到邮箱包含 "${emailSearch}" 的记录`;
                 if (idSearch && emailSearch) message = `未找到ID包含 "${idSearch}" 且邮箱包含 "${emailSearch}" 的记录`;
+                if (statusFilter === 'deleted') message = '暂无删除记录';
                 recordsList.innerHTML = `<p style="text-align: center; color: #6c757d; padding: 40px;">${message}</p>`;
                 return;
             }
@@ -5429,7 +5710,6 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                             </div>
                             <div style="font-size: 14px; color: #6c757d; font-weight: 600; display: flex; align-items: center; gap: 8px;">
                                 <span>ID: ${highlightedId}</span>
-                                ${request.status !== 'deleted' ? `<button class="copy-btn" onclick="copyRecordContent(${request.id})" id="copy-record-${request.id}" title="复制发送内容">📋</button>` : ''}
                             </div>
                         </div>
                         
@@ -5445,6 +5725,7 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                             <div><strong>提交时间：</strong> ${request.submitTime}</div>
                             ${request.approveTime ? `<div><strong>审核时间：</strong> ${request.approveTime}</div>` : ''}
                             ${request.rejectTime ? `<div><strong>拒绝时间：</strong> ${request.rejectTime}</div>` : ''}
+                            ${request.deleteTime ? `<div><strong>删除时间：</strong> ${request.deleteTime}</div>` : ''}
                         </div>
                         
                         <div>
@@ -5452,7 +5733,8 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         </div>
                         <div class="record-content" id="record-content-${request.id}">
                             ${request.status === 'deleted' ? 
-                                `<div style="color: #dc3545; font-weight: bold;">已被移除，请联系管理员</div>` : 
+                                `<div style="color: #dc3545; font-weight: bold;">⚠️ 此内容已被删除</div>
+                                 <div style="color: #6c757d; font-style: italic; margin-top: 5px;">原内容：${request.content.substring(0, 100)}${request.content.length > 100 ? '...' : ''}</div>` : 
                                 request.content.replace(/\n/g, '<br>')
                             }
                         </div>
@@ -5475,14 +5757,21 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         ` : ''}
                         
                         ${request.deleteReason ? `
-                            <div style="margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 4px;">
-                                <strong>删除原因：</strong> ${request.deleteReason}
-                                <br><strong>删除时间：</strong> ${request.deleteTime}
+                            <div style="margin-top: 10px; padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px;">
+                                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-size: 18px; margin-right: 8px;">🗑️</span>
+                                    <strong style="color: #721c24;">删除信息</strong>
+                                </div>
+                                <div style="margin-bottom: 8px;"><strong>删除原因：</strong> ${request.deleteReason}</div>
+                                <div style="margin-bottom: 8px;"><strong>删除时间：</strong> ${request.deleteTime}</div>
+                                ${request.deletedBy ? `<div><strong>删除者：</strong> ${request.deletedBy}</div>` : ''}
                             </div>
                         ` : ''}
                     </div>
                 `}).join('')}
             `;
+            
+            console.log('[RECORDS] 审核记录加载完成，显示了', mergedRequests.length, '条记录');
         }
         
         // 合并循环请求
@@ -5583,35 +5872,6 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             filterRecords();
         }
         
-        // 复制记录内容
-        function copyRecordContent(recordId) {
-            const request = requests.find(r => r.id === recordId);
-            if (!request) return;
-            
-            const content = request.content;
-            
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(content).then(() => {
-                    showTemporaryMessage('✅ 内容已复制到剪贴板', 'success');
-                    
-                    // 临时改变按钮文字
-                    const button = document.getElementById(`copy-record-${recordId}`);
-                    if (button) {
-                        const originalText = button.textContent;
-                        button.textContent = '✅ 已复制';
-                        button.style.background = '#28a745';
-                        setTimeout(() => {
-                            button.textContent = originalText;
-                            button.style.background = '';
-                        }, 2000);
-                    }
-                }).catch(() => {
-                    fallbackCopyText(content);
-                });
-            } else {
-                fallbackCopyText(content);
-            }
-        }
         function clearSearch() { 
             document.getElementById('idSearch').value = '';
             document.getElementById('emailSearch').value = '';
@@ -5626,6 +5886,14 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         function showEventDetails(event) {
             const modal = document.getElementById('eventModal');
             const details = document.getElementById('eventDetails');
+            
+            // 存储当前显示的事件
+            currentDisplayedEvent = event;
+            console.log('[EVENT_DETAILS] 显示事件详情:', event);
+            console.log('[EVENT_DETAILS] 事件ID:', event.id, '类型:', typeof event.id);
+            
+            // 检查当前用户是否为OCM POC
+            const isOCMPOC = currentUserRole === 'ocm_poc' && isOCMAuthenticated;
             
             details.innerHTML = `
                 <div style="margin-bottom: 15px;">
@@ -5652,52 +5920,1363 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         <p style="color: #666;">${event.notes}</p>
                     </div>
                 ` : ''}
-                <div style="text-align: center; margin-top: 20px;">
-                    <button class="btn" onclick="copyEventContent(${event.id})" style="margin-right: 10px;">📋 复制内容</button>
-                    <button class="btn" onclick="closeEventModal()">关闭</button>
+                <div style="text-align: center; margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn" onclick="copyEventContentFromModal('${event.id}')" style="background: #007bff;">📋 复制内容</button>
+                    ${isOCMPOC ? `
+                        <button class="btn" onclick="showDeleteEventModal(${JSON.stringify(event).replace(/"/g, '&quot;')})" 
+                                style="background: #dc3545; color: white;">
+                            🗑️ 删除事件
+                        </button>
+                    ` : ''}
+                    <button class="btn" onclick="closeEventModal()" style="background: #6c757d;">关闭</button>
                 </div>
             `;
             
             modal.style.display = 'block';
         }
 
-        // 复制事件内容
+        // 复制事件内容 - V3强化版
         function copyEventContent(eventId) {
-            const event = approvedEvents.find(e => e.id === eventId);
-            if (!event) return;
+            console.log('=== 复制功能开始 ===');
+            console.log('[COPY_V3] 触发复制，事件ID:', eventId);
+            console.log('[COPY_V3] ID类型:', typeof eventId);
             
-            const content = `${event.arc}-${event.cohort} 发送内容：\n${event.content}`;
+            // 立即显示开始提示
+            showTemporaryMessage('🔄 开始复制...', 'info');
             
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(content).then(() => {
-                    showTemporaryMessage('✅ 内容已复制到剪贴板', 'success');
-                }).catch(() => {
-                    fallbackCopyText(content);
-                });
+            // 检查基础环境
+            console.log('[COPY_V3] 环境检查:');
+            console.log('  - navigator.clipboard:', !!navigator.clipboard);
+            console.log('  - navigator.clipboard.writeText:', !!(navigator.clipboard && navigator.clipboard.writeText));
+            console.log('  - document.execCommand:', !!document.execCommand);
+            console.log('  - 当前协议:', window.location.protocol);
+            console.log('  - 已批准事件数量:', approvedEvents.length);
+            
+            if (approvedEvents.length === 0) {
+                console.error('[COPY_V3] ❌ 没有已批准的事件');
+                showTemporaryMessage('❌ 没有可复制的事件', 'error');
+                return;
+            }
+            
+            // 详细显示所有事件
+            console.log('[COPY_V3] 所有已批准事件:');
+            approvedEvents.forEach((e, index) => {
+                console.log(`  ${index + 1}. ID: "${e.id}" (${typeof e.id}), 标题: "${e.title}"`);
+            });
+            
+            // 查找事件
+            let event = null;
+            let findMethod = '';
+            
+            // 方法1：严格匹配
+            event = approvedEvents.find(e => e.id === eventId);
+            if (event) {
+                findMethod = '严格匹配';
+                console.log('[COPY_V3] ✅ 方法1成功 - 严格匹配');
+            }
+            
+            // 方法2：字符串匹配
+            if (!event) {
+                event = approvedEvents.find(e => String(e.id) === String(eventId));
+                if (event) {
+                    findMethod = '字符串匹配';
+                    console.log('[COPY_V3] ✅ 方法2成功 - 字符串匹配');
+                }
+            }
+            
+            // 方法3：数字匹配
+            if (!event) {
+                const numId = Number(eventId);
+                if (!isNaN(numId)) {
+                    event = approvedEvents.find(e => Number(e.id) === numId);
+                    if (event) {
+                        findMethod = '数字匹配';
+                        console.log('[COPY_V3] ✅ 方法3成功 - 数字匹配');
+                    }
+                }
+            }
+            
+            // 方法4：索引匹配（如果ID是数字索引）
+            if (!event) {
+                const index = parseInt(eventId);
+                if (!isNaN(index) && index >= 0 && index < approvedEvents.length) {
+                    event = approvedEvents[index];
+                    if (event) {
+                        findMethod = '索引匹配';
+                        console.log('[COPY_V3] ✅ 方法4成功 - 索引匹配');
+                    }
+                }
+            }
+            
+            if (!event) {
+                console.error('[COPY_V3] ❌ 所有方法都无法找到事件');
+                console.log('[COPY_V3] 查找的ID:', eventId);
+                console.log('[COPY_V3] 可用的事件ID:', approvedEvents.map(e => e.id));
+                showTemporaryMessage('❌ 找不到要复制的事件', 'error');
+                
+                // 显示详细错误信息
+                setTimeout(() => {
+                    alert(`复制失败详情：\n\n查找ID: ${eventId} (${typeof eventId})\n\n可用事件:\n${approvedEvents.map((e, i) => `${i+1}. ID: ${e.id} (${typeof e.id})`).join('\n')}`);
+                }, 500);
+                return;
+            }
+            
+            console.log(`[COPY_V3] ✅ 找到事件 (${findMethod}):`, {
+                id: event.id,
+                title: event.title,
+                arc: event.arc,
+                cohort: event.cohort,
+                contentLength: event.content ? event.content.length : 0
+            });
+            
+            // 构建复制内容 - 只复制事件内容
+            let copyText = '';
+            if (event.content) {
+                copyText = event.content;
             } else {
-                fallbackCopyText(content);
+                copyText = `事件ID: ${event.id}\n标题: ${event.title || '无标题'}\n内容: 无内容`;
+            }
+            
+            console.log('[COPY_V3] 准备复制的内容:');
+            console.log('  - 长度:', copyText.length);
+            console.log('  - 前100字符:', copyText.substring(0, 100));
+            
+            showTemporaryMessage('📋 准备复制内容...', 'info');
+            
+            // 尝试复制
+            attemptCopy(copyText, event);
+        }
+
+        // 专门用于模态框的复制函数
+        function copyEventContentFromModal(eventId) {
+            console.log('=== 模态框复制功能开始 ===');
+            console.log('[MODAL_COPY] 触发复制，传入ID:', eventId);
+            console.log('[MODAL_COPY] ID类型:', typeof eventId);
+            console.log('[MODAL_COPY] 当前显示的事件:', currentDisplayedEvent);
+            
+            // 立即显示开始提示
+            showTemporaryMessage('🔄 开始复制事件内容...', 'info');
+            
+            let targetEvent = null;
+            
+            // 方法1：使用当前显示的事件（最可靠）
+            if (currentDisplayedEvent && currentDisplayedEvent.id) {
+                console.log('[MODAL_COPY] 方法1：使用当前显示的事件');
+                // 检查ID是否匹配
+                if (currentDisplayedEvent.id === eventId || 
+                    String(currentDisplayedEvent.id) === String(eventId) ||
+                    Number(currentDisplayedEvent.id) === Number(eventId)) {
+                    targetEvent = currentDisplayedEvent;
+                    console.log('[MODAL_COPY] ✅ 使用当前显示事件，ID匹配:', targetEvent.id);
+                } else {
+                    console.log('[MODAL_COPY] 当前显示事件ID不匹配:', currentDisplayedEvent.id, 'vs', eventId);
+                }
+            }
+            
+            // 方法2：从已批准事件中查找（多种匹配方式）
+            if (!targetEvent && approvedEvents.length > 0) {
+                console.log('[MODAL_COPY] 方法2：从已批准事件中查找');
+                console.log('[MODAL_COPY] 查找ID:', eventId, '类型:', typeof eventId);
+                console.log('[MODAL_COPY] 可用事件:', approvedEvents.map(e => ({id: e.id, type: typeof e.id, title: e.title})));
+                
+                // 尝试多种匹配方式
+                targetEvent = approvedEvents.find(e => {
+                    return e.id === eventId || 
+                           String(e.id) === String(eventId) ||
+                           Number(e.id) === Number(eventId) ||
+                           e.id.toString() === eventId.toString();
+                });
+                
+                if (targetEvent) {
+                    console.log('[MODAL_COPY] ✅ 从已批准事件中找到，ID:', targetEvent.id);
+                } else {
+                    console.log('[MODAL_COPY] 在已批准事件中未找到匹配的事件');
+                }
+            }
+            
+            // 方法3：从所有请求中查找（包括已批准的）
+            if (!targetEvent && requests.length > 0) {
+                console.log('[MODAL_COPY] 方法3：从所有请求中查找');
+                targetEvent = requests.find(r => {
+                    return r.status === 'approved' && (
+                        r.id === eventId || 
+                        String(r.id) === String(eventId) ||
+                        Number(r.id) === Number(eventId)
+                    );
+                });
+                
+                if (targetEvent) {
+                    console.log('[MODAL_COPY] ✅ 从所有请求中找到，ID:', targetEvent.id);
+                }
+            }
+            
+            if (!targetEvent) {
+                console.error('[MODAL_COPY] ❌ 所有方法都无法找到事件');
+                console.error('[MODAL_COPY] 查找的ID:', eventId, '类型:', typeof eventId);
+                console.error('[MODAL_COPY] 当前显示事件:', currentDisplayedEvent);
+                console.error('[MODAL_COPY] 已批准事件数量:', approvedEvents.length);
+                console.error('[MODAL_COPY] 所有请求数量:', requests.length);
+                
+                showTemporaryMessage('❌ 找不到要复制的事件', 'error');
+                
+                // 显示详细错误信息给用户
+                setTimeout(() => {
+                    alert(`❌ 复制失败 - 找不到事件\n\n调试信息：\n• 查找ID: ${eventId} (${typeof eventId})\n• 当前显示事件: ${currentDisplayedEvent ? currentDisplayedEvent.id : '无'}\n• 已批准事件数量: ${approvedEvents.length}\n• 总请求数量: ${requests.length}\n\n请查看控制台获取详细日志。`);
+                }, 500);
+                return;
+            }
+            
+            console.log('[MODAL_COPY] ✅ 找到目标事件:', {
+                id: targetEvent.id,
+                title: targetEvent.title,
+                arc: targetEvent.arc,
+                cohort: targetEvent.cohort,
+                contentLength: targetEvent.content ? targetEvent.content.length : 0
+            });
+            
+            // 构建复制内容 - 只复制事件内容
+            let copyText = '';
+            if (targetEvent.content) {
+                copyText = targetEvent.content;
+            } else {
+                copyText = `事件ID: ${targetEvent.id}\n标题: ${targetEvent.title || '无标题'}\n内容: 无内容`;
+            }
+            
+            console.log('[MODAL_COPY] 准备复制的内容长度:', copyText.length);
+            console.log('[MODAL_COPY] 内容预览:', copyText.substring(0, 100) + '...');
+            
+            // 调用复制尝试函数
+            attemptCopy(copyText, targetEvent);
+        }
+        
+        // 尝试复制函数
+        async function attemptCopy(text, event) {
+            console.log('[ATTEMPT_COPY] 开始尝试复制，文本长度:', text.length);
+            
+            let copySuccess = false;
+            let copyMethod = '';
+            let errorMessage = '';
+            
+            // 方法1：现代剪贴板API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                console.log('[ATTEMPT_COPY] 尝试方法1: 现代剪贴板API');
+                showTemporaryMessage('🔄 使用现代剪贴板API...', 'info');
+                
+                try {
+                    await navigator.clipboard.writeText(text);
+                    copySuccess = true;
+                    copyMethod = '现代剪贴板API';
+                    console.log('[ATTEMPT_COPY] ✅ 现代剪贴板API成功');
+                } catch (error) {
+                    console.error('[ATTEMPT_COPY] ❌ 现代剪贴板API失败:', error);
+                    errorMessage = error.message;
+                }
+            }
+            
+            // 方法2：execCommand
+            if (!copySuccess) {
+                console.log('[ATTEMPT_COPY] 尝试方法2: execCommand');
+                showTemporaryMessage('🔄 使用传统复制方法...', 'info');
+                
+                try {
+                    const result = await execCommandCopy(text);
+                    if (result) {
+                        copySuccess = true;
+                        copyMethod = 'execCommand';
+                        console.log('[ATTEMPT_COPY] ✅ execCommand成功');
+                    }
+                } catch (error) {
+                    console.error('[ATTEMPT_COPY] ❌ execCommand失败:', error);
+                    errorMessage += '; ' + error.message;
+                }
+            }
+            
+            // 显示结果
+            if (copySuccess) {
+                console.log(`[ATTEMPT_COPY] 🎉 复制成功！使用方法: ${copyMethod}`);
+                
+                // 显示成功提示
+                showTemporaryMessage(`✅ 复制成功！(${copyMethod})`, 'success');
+                
+                // 额外的成功确认
+                setTimeout(() => {
+                    showCopySuccessModal(text, copyMethod, event);
+                }, 1000);
+                
+            } else {
+                console.error('[ATTEMPT_COPY] ❌ 所有复制方法都失败');
+                console.error('[ATTEMPT_COPY] 错误信息:', errorMessage);
+                
+                showTemporaryMessage('❌ 自动复制失败，显示手动复制', 'warning');
+                
+                // 显示手动复制窗口
+                setTimeout(() => {
+                    showManualCopyModal(text, errorMessage, event);
+                }, 500);
+            }
+        }
+        
+        // execCommand复制方法
+        function execCommandCopy(text) {
+            return new Promise((resolve, reject) => {
+                try {
+                    console.log('[EXEC_COPY] 创建临时文本区域');
+                    
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    
+                    // 设置样式确保不可见但可操作
+                    textArea.style.position = 'fixed';
+                    textArea.style.top = '0';
+                    textArea.style.left = '0';
+                    textArea.style.width = '2em';
+                    textArea.style.height = '2em';
+                    textArea.style.padding = '0';
+                    textArea.style.border = 'none';
+                    textArea.style.outline = 'none';
+                    textArea.style.boxShadow = 'none';
+                    textArea.style.background = 'transparent';
+                    textArea.style.opacity = '0';
+                    textArea.style.zIndex = '-1';
+                    
+                    document.body.appendChild(textArea);
+                    
+                    console.log('[EXEC_COPY] 选择文本');
+                    textArea.focus();
+                    textArea.select();
+                    textArea.setSelectionRange(0, text.length);
+                    
+                    // 延迟执行确保DOM更新
+                    setTimeout(() => {
+                        try {
+                            console.log('[EXEC_COPY] 执行复制命令');
+                            const successful = document.execCommand('copy');
+                            
+                            console.log('[EXEC_COPY] execCommand结果:', successful);
+                            
+                            // 清理DOM
+                            document.body.removeChild(textArea);
+                            
+                            if (successful) {
+                                resolve(true);
+                            } else {
+                                reject(new Error('execCommand返回false'));
+                            }
+                        } catch (err) {
+                            // 清理DOM
+                            if (document.body.contains(textArea)) {
+                                document.body.removeChild(textArea);
+                            }
+                            reject(err);
+                        }
+                    }, 10);
+                    
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+        
+        // 显示复制成功确认模态框
+        function showCopySuccessModal(text, method, event) {
+            console.log('[SUCCESS_MODAL] 显示复制成功确认');
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10002;
+                backdrop-filter: blur(5px);
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 15px;
+                    max-width: 500px;
+                    width: 90%;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                    animation: modalSlideIn 0.3s ease;
+                ">
+                    <div style="
+                        background: linear-gradient(135deg, #28a745, #20c997);
+                        color: white;
+                        padding: 20px 30px;
+                        border-radius: 15px 15px 0 0;
+                        text-align: center;
+                    ">
+                        <div style="font-size: 3rem; margin-bottom: 10px;">✅</div>
+                        <h3 style="margin: 0; font-size: 1.4rem;">复制成功！</h3>
+                    </div>
+                    <div style="padding: 30px; text-align: center;">
+                        <p style="margin-bottom: 15px; color: #333; font-size: 16px;">
+                            内容已成功复制到剪贴板
+                        </p>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left;">
+                            <div style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                                <strong>复制方法:</strong> ${method}<br>
+                                <strong>事件:</strong> ${event.arc}-${event.cohort}<br>
+                                <strong>内容长度:</strong> ${text.length} 字符
+                            </div>
+                            <div style="font-size: 12px; color: #999; border-top: 1px solid #e9ecef; padding-top: 10px;">
+                                <strong>内容预览:</strong><br>
+                                ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}
+                            </div>
+                        </div>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+                            现在可以在任何地方粘贴 (Ctrl+V 或 Cmd+V)
+                        </p>
+                        <button onclick="this.closest('.success-modal').remove()" 
+                                style="
+                                    background: #28a745;
+                                    color: white;
+                                    border: none;
+                                    padding: 12px 24px;
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                    font-weight: 600;
+                                ">
+                            确定
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            modal.className = 'success-modal';
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+            
+            document.body.appendChild(modal);
+            
+            // 3秒后自动关闭
+            setTimeout(() => {
+                if (document.body.contains(modal)) {
+                    modal.remove();
+                }
+            }, 5000);
+        }
+        
+        // 显示手动复制模态框
+        function showManualCopyModal(text, errorMessage, event) {
+            console.log('[MANUAL_MODAL] 显示手动复制模态框');
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10002;
+                backdrop-filter: blur(5px);
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 15px;
+                    max-width: 600px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                ">
+                    <div style="
+                        background: linear-gradient(135deg, #ffc107, #fd7e14);
+                        color: white;
+                        padding: 20px 30px;
+                        border-radius: 15px 15px 0 0;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    ">
+                        <div>
+                            <div style="font-size: 2rem; margin-bottom: 5px;">📋</div>
+                            <h3 style="margin: 0; font-size: 1.4rem;">手动复制</h3>
+                        </div>
+                        <button onclick="this.closest('.manual-modal').remove()" 
+                                style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.3s ease;" 
+                                onmouseover="this.style.background='rgba(255,255,255,0.2)'" 
+                                onmouseout="this.style.background='none'">&times;</button>
+                    </div>
+                    <div style="padding: 30px;">
+                        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin-bottom: 20px;">
+                            <p style="margin: 0; color: #856404;">
+                                <strong>自动复制失败</strong><br>
+                                ${errorMessage ? `错误: ${errorMessage}` : '请手动选择并复制以下内容'}
+                            </p>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <strong>事件信息:</strong><br>
+                            <span style="color: #666;">${event.arc}-${event.cohort} (${text.length} 字符)</span>
+                        </div>
+                        
+                        <p style="margin-bottom: 15px; color: #333;">
+                            请选择下面的文本框并复制内容：
+                        </p>
+                        <textarea readonly 
+                                  id="manualCopyText"
+                                  style="
+                                      width: 100%;
+                                      height: 200px;
+                                      padding: 15px;
+                                      border: 2px solid #007bff;
+                                      border-radius: 8px;
+                                      font-size: 14px;
+                                      font-family: monospace;
+                                      resize: vertical;
+                                      background: #f8f9fa;
+                                  "
+                                  onclick="this.select(); showTemporaryMessage('📋 文本已选中，请按 Ctrl+C 复制', 'info')"
+                                  onfocus="this.select()">${text}</textarea>
+                        <div style="text-align: center; margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                            <button onclick="selectAndCopyManual()" 
+                                    style="
+                                        background: #007bff;
+                                        color: white;
+                                        border: none;
+                                        padding: 12px 24px;
+                                        border-radius: 8px;
+                                        cursor: pointer;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                    ">
+                                选中文本
+                            </button>
+                            <button onclick="this.closest('.manual-modal').remove()" 
+                                    style="
+                                        background: #6c757d;
+                                        color: white;
+                                        border: none;
+                                        padding: 12px 24px;
+                                        border-radius: 8px;
+                                        cursor: pointer;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                    ">
+                                关闭
+                            </button>
+                        </div>
+                        <div style="text-align: center; margin-top: 15px;">
+                            <small style="color: #666;">
+                                💡 提示：点击文本框会自动选中所有内容，然后按 Ctrl+C (Windows) 或 Cmd+C (Mac) 复制
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.className = 'manual-modal';
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+            
+            document.body.appendChild(modal);
+            
+            // 自动选中文本
+            setTimeout(() => {
+                const textarea = document.getElementById('manualCopyText');
+                if (textarea) {
+                    textarea.focus();
+                    textarea.select();
+                }
+            }, 100);
+        }
+        
+        // 手动选中文本函数
+        function selectAndCopyManual() {
+            const textarea = document.getElementById('manualCopyText');
+            if (textarea) {
+                textarea.focus();
+                textarea.select();
+                textarea.setSelectionRange(0, textarea.value.length);
+                showTemporaryMessage('📋 文本已选中，请按 Ctrl+C 或 Cmd+C 复制', 'info');
             }
         }
 
-        // 备用复制方法
+        // 备用复制方法 - 增强版
         function fallbackCopyText(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            textArea.style.position = 'fixed';
-            textArea.style.left = '-999999px';
-            textArea.style.top = '-999999px';
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
+            console.log('[FALLBACK_COPY] 开始备用复制方法');
+            console.log('[FALLBACK_COPY] 文本长度:', text.length);
             
             try {
-                document.execCommand('copy');
-                showTemporaryMessage('✅ 内容已复制到剪贴板', 'success');
-            } catch (err) {
-                showTemporaryMessage('❌ 复制失败，请手动复制', 'error');
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                textArea.style.opacity = '0';
+                textArea.style.pointerEvents = 'none';
+                textArea.setAttribute('readonly', '');
+                
+                document.body.appendChild(textArea);
+                
+                // 确保元素被添加到DOM
+                setTimeout(() => {
+                    try {
+                        textArea.focus();
+                        textArea.select();
+                        textArea.setSelectionRange(0, text.length);
+                        
+                        console.log('[FALLBACK_COPY] 文本已选中，尝试复制');
+                        
+                        const successful = document.execCommand('copy');
+                        console.log('[FALLBACK_COPY] execCommand结果:', successful);
+                        
+                        if (successful) {
+                            showTemporaryMessage('✅ 内容已复制到剪贴板', 'success');
+                        } else {
+                            throw new Error('execCommand返回false');
+                        }
+                        
+                    } catch (execError) {
+                        console.error('[FALLBACK_COPY] execCommand失败:', execError);
+                        
+                        // 最后的备用方案：显示内容让用户手动复制
+                        showCopyModal(text);
+                        
+                    } finally {
+                        // 清理DOM元素
+                        if (document.body.contains(textArea)) {
+                            document.body.removeChild(textArea);
+                        }
+                    }
+                }, 10);
+                
+            } catch (error) {
+                console.error('[FALLBACK_COPY] 备用复制方法失败:', error);
+                showCopyModal(text);
+            }
+        }
+
+        // 显示手动复制模态框
+        function showCopyModal(text) {
+            console.log('[COPY_MODAL] 显示手动复制模态框');
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10001;
+                backdrop-filter: blur(5px);
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 15px;
+                    max-width: 600px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                ">
+                    <div style="
+                        background: linear-gradient(135deg, #007bff, #0056b3);
+                        color: white;
+                        padding: 20px 30px;
+                        border-radius: 15px 15px 0 0;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    ">
+                        <h3 style="margin: 0; font-size: 1.4rem;">📋 手动复制内容</h3>
+                        <button onclick="this.closest('.copy-modal').remove()" 
+                                style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.3s ease;" 
+                                onmouseover="this.style.background='rgba(255,255,255,0.2)'" 
+                                onmouseout="this.style.background='none'">&times;</button>
+                    </div>
+                    <div style="padding: 30px;">
+                        <p style="margin-bottom: 15px; color: #666;">
+                            自动复制失败，请手动选择并复制以下内容：
+                        </p>
+                        <textarea readonly 
+                                  style="
+                                      width: 100%;
+                                      height: 200px;
+                                      padding: 15px;
+                                      border: 2px solid #e9ecef;
+                                      border-radius: 8px;
+                                      font-size: 14px;
+                                      font-family: monospace;
+                                      resize: vertical;
+                                      background: #f8f9fa;
+                                  "
+                                  onclick="this.select()"
+                                  onfocus="this.select()">${text}</textarea>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <button onclick="this.closest('.copy-modal').remove()" 
+                                    style="
+                                        background: #007bff;
+                                        color: white;
+                                        border: none;
+                                        padding: 12px 24px;
+                                        border-radius: 8px;
+                                        cursor: pointer;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                    ">
+                                关闭
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.className = 'copy-modal';
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            };
+            
+            document.body.appendChild(modal);
+            
+            // 自动选中文本
+            setTimeout(() => {
+                const textarea = modal.querySelector('textarea');
+                if (textarea) {
+                    textarea.focus();
+                    textarea.select();
+                }
+            }, 100);
+            
+            showTemporaryMessage('📋 请手动复制内容', 'info');
+        }
+
+        // 全局变量存储当前要删除的事件
+        let currentEventToDelete = null;
+        // 全局变量存储当前显示的事件详情
+        let currentDisplayedEvent = null;
+
+        // 显示删除事件确认模态框
+        function showDeleteEventModal(event) {
+            console.log('[DELETE_MODAL] 显示删除确认模态框:', event);
+            
+            // 权限检查
+            if (currentUserRole !== 'ocm_poc' || !isOCMAuthenticated) {
+                showTemporaryMessage('❌ 只有 OCM POC 可以删除事件', 'error');
+                return;
             }
             
-            document.body.removeChild(textArea);
+            currentEventToDelete = event;
+            
+            // 填充事件信息
+            const eventInfoDiv = document.getElementById('deleteEventInfo');
+            eventInfoDiv.innerHTML = `
+                <div class="event-info-row">
+                    <div class="event-info-label">日期：</div>
+                    <div class="event-info-value">${event.date}</div>
+                </div>
+                <div class="event-info-row">
+                    <div class="event-info-label">目标：</div>
+                    <div class="event-info-value">${event.arc}-${event.cohort}</div>
+                </div>
+                <div class="event-info-row">
+                    <div class="event-info-label">提交人：</div>
+                    <div class="event-info-value">${event.submitter}${event.teamDomain ? ` (${event.teamDomain})` : ''}</div>
+                </div>
+                <div class="event-info-row">
+                    <div class="event-info-label">内容：</div>
+                    <div class="event-info-value" style="max-height: 100px; overflow-y: auto; background: white; padding: 8px; border-radius: 4px; border: 1px solid #e9ecef;">
+                        ${event.content.replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+                ${event.images && event.images.length > 0 ? `
+                    <div class="event-info-row">
+                        <div class="event-info-label">图片：</div>
+                        <div class="event-info-value">${event.images.length} 张附件图片</div>
+                    </div>
+                ` : ''}
+            `;
+            
+            // 清空删除原因输入框
+            const reasonInput = document.getElementById('deleteEventReason');
+            reasonInput.value = '';
+            reasonInput.classList.remove('error');
+            
+            // 隐藏错误信息
+            document.getElementById('deleteReasonError').style.display = 'none';
+            
+            // 重置确认按钮状态
+            const confirmBtn = document.getElementById('confirmDeleteEventBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确认删除';
+            }
+            
+            // 重置字符计数
+            updateCharCount();
+            
+            // 关闭事件详情模态框
+            closeEventModal();
+            
+            // 显示删除确认模态框
+            document.getElementById('deleteEventModal').style.display = 'flex';
+            
+            // 聚焦到原因输入框
+            setTimeout(() => {
+                reasonInput.focus();
+            }, 300);
+        }
+
+        // 关闭删除事件确认模态框
+        function closeDeleteEventModal() {
+            document.getElementById('deleteEventModal').style.display = 'none';
+            currentEventToDelete = null;
+            
+            // 重置按钮状态
+            const confirmBtn = document.getElementById('confirmDeleteEventBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确认删除';
+            }
+            
+            // 清空输入框和错误状态
+            const reasonInput = document.getElementById('deleteEventReason');
+            const errorDiv = document.getElementById('deleteReasonError');
+            
+            if (reasonInput) {
+                reasonInput.value = '';
+                reasonInput.classList.remove('error');
+            }
+            
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+            
+            // 重置字符计数
+            updateCharCount();
+        }
+
+        // 更新字符计数
+        function updateCharCount() {
+            const reasonInput = document.getElementById('deleteEventReason');
+            const charCount = document.getElementById('reasonCharCount');
+            const currentLength = reasonInput.value.length;
+            charCount.textContent = currentLength;
+            
+            // 根据字符数量改变颜色
+            if (currentLength > 450) {
+                charCount.style.color = '#dc3545';
+            } else if (currentLength > 400) {
+                charCount.style.color = '#ffc107';
+            } else {
+                charCount.style.color = '#6c757d';
+            }
+        }
+
+        // 确认删除事件
+        function confirmDeleteEvent() {
+            const reasonInput = document.getElementById('deleteEventReason');
+            const errorDiv = document.getElementById('deleteReasonError');
+            const confirmBtn = document.getElementById('confirmDeleteEventBtn');
+            
+            const deleteReason = reasonInput.value.trim();
+            
+            // 验证删除原因
+            if (!deleteReason) {
+                reasonInput.classList.add('error');
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = '请输入删除原因';
+                reasonInput.focus();
+                return;
+            }
+            
+            if (deleteReason.length < 10) {
+                reasonInput.classList.add('error');
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = '删除原因至少需要10个字符，请详细说明';
+                reasonInput.focus();
+                return;
+            }
+            
+            // 禁用确认按钮，防止重复提交
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '删除中...';
+            
+            // 执行删除操作
+            executeEventDeletion(currentEventToDelete, deleteReason)
+                .then(() => {
+                    console.log('[CONFIRM_DELETE] 删除操作完成');
+                })
+                .catch((error) => {
+                    console.error('[CONFIRM_DELETE] 删除操作失败:', error);
+                })
+                .finally(() => {
+                    // 确保按钮状态被重置
+                    setTimeout(() => {
+                        if (confirmBtn) {
+                            confirmBtn.disabled = false;
+                            confirmBtn.textContent = '确认删除';
+                        }
+                    }, 1000);
+                });
+        }
+
+        // 执行事件删除操作
+        async function executeEventDeletion(event, deleteReason) {
+            console.log('[DELETE_EXECUTE] 开始执行删除操作:', event.id, deleteReason);
+            
+            const confirmBtn = document.getElementById('confirmDeleteEventBtn');
+            
+            try {
+                // 1. 从已批准事件列表中移除
+                const eventIndex = approvedEvents.findIndex(e => e.id === event.id);
+                if (eventIndex !== -1) {
+                    approvedEvents.splice(eventIndex, 1);
+                    console.log('[DELETE_EXECUTE] 事件已从内存中的已批准列表中移除');
+                }
+                
+                // 2. 在requests中找到对应记录并标记为已删除
+                let request = requests.find(r => r.id === event.id);
+                if (request) {
+                    request.status = 'deleted';
+                    request.deleteReason = deleteReason;
+                    request.deleteTime = new Date().toLocaleString('zh-CN');
+                    request.deletedBy = 'OCM POC';
+                    console.log('[DELETE_EXECUTE] 请求记录已标记为删除状态');
+                } else {
+                    // 如果在requests中找不到，创建一个删除记录
+                    const deleteRecord = {
+                        id: event.id,
+                        content: event.content,
+                        arc: event.arc,
+                        cohort: event.cohort,
+                        target: `${event.arc}-${event.cohort}`,
+                        sendDate: event.date,
+                        submitter: event.submitter,
+                        teamDomain: event.teamDomain,
+                        email: event.email || 'N/A',
+                        notes: event.notes,
+                        images: event.images || [],
+                        status: 'deleted',
+                        deleteReason: deleteReason,
+                        deleteTime: new Date().toLocaleString('zh-CN'),
+                        deletedBy: 'OCM POC',
+                        submitTime: 'N/A' // 原始提交时间未知
+                    };
+                    requests.push(deleteRecord);
+                    request = deleteRecord; // 保存引用用于后续操作
+                    console.log('[DELETE_EXECUTE] 创建了新的删除记录');
+                }
+                
+                // 3. 安全地保存到localStorage，处理配额超限问题
+                try {
+                    // 先尝试保存requests（包含删除记录）
+                    localStorage.setItem('massRequests', JSON.stringify(requests));
+                    console.log('[DELETE_EXECUTE] requests数据已保存到localStorage');
+                    
+                    // 再尝试保存approvedEvents（已移除删除的事件）
+                    localStorage.setItem('approvedEvents', JSON.stringify(approvedEvents));
+                    console.log('[DELETE_EXECUTE] approvedEvents数据已保存到localStorage');
+                    
+                } catch (storageError) {
+                    console.warn('[DELETE_EXECUTE] localStorage保存失败，尝试清理数据:', storageError);
+                    
+                    // 如果保存失败，尝试清理一些数据
+                    if (storageError.name === 'QuotaExceededError') {
+                        // 清理图片数据以节省空间
+                        const cleanedRequests = requests.map(req => {
+                            if (req.images && req.images.length > 0) {
+                                return {
+                                    ...req,
+                                    images: req.images.map(img => ({
+                                        name: img.name,
+                                        type: img.type,
+                                        size: img.size,
+                                        data: null // 清理图片数据
+                                    }))
+                                };
+                            }
+                            return req;
+                        });
+                        
+                        const cleanedEvents = approvedEvents.map(event => {
+                            if (event.images && event.images.length > 0) {
+                                return {
+                                    ...event,
+                                    images: event.images.map(img => ({
+                                        name: img.name,
+                                        type: img.type,
+                                        size: img.size,
+                                        data: null // 清理图片数据
+                                    }))
+                                };
+                            }
+                            return event;
+                        });
+                        
+                        try {
+                            localStorage.setItem('massRequests', JSON.stringify(cleanedRequests));
+                            localStorage.setItem('approvedEvents', JSON.stringify(cleanedEvents));
+                            console.log('[DELETE_EXECUTE] 数据清理后保存成功');
+                            showTemporaryMessage('⚠️ 由于存储空间限制，已清理部分图片数据', 'warning');
+                        } catch (secondError) {
+                            console.error('[DELETE_EXECUTE] 清理后仍然保存失败:', secondError);
+                            showTemporaryMessage('⚠️ 本地存储空间不足，删除操作已完成但可能无法保存到本地', 'warning');
+                        }
+                    }
+                }
+                
+                // 3. 同步删除状态到云端
+                if (collaborationEnabled && supabase) {
+                    console.log('[DELETE_EXECUTE] 开始同步删除状态到云端');
+                    
+                    try {
+                        // 更新requests表中的状态
+                        const { error: updateError } = await supabase
+                            .from('requests')
+                            .update({
+                                status: 'deleted',
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', event.id);
+                        
+                        if (updateError) {
+                            console.error('[DELETE_EXECUTE] 云端状态更新失败:', updateError);
+                        } else {
+                            console.log('[DELETE_EXECUTE] 云端状态更新成功');
+                        }
+                        
+                        // 从events表中删除记录
+                        const { error: deleteError } = await supabase
+                            .from('events')
+                            .delete()
+                            .eq('id', event.id);
+                        
+                        if (deleteError) {
+                            console.error('[DELETE_EXECUTE] 云端事件删除失败:', deleteError);
+                        } else {
+                            console.log('[DELETE_EXECUTE] 云端事件删除成功');
+                        }
+                        
+                    } catch (cloudError) {
+                        console.error('[DELETE_EXECUTE] 云端操作异常:', cloudError);
+                    }
+                }
+                
+                // 4. 刷新界面
+                generateCalendar();
+                
+                // 强制刷新审核记录以显示删除记录
+                if (document.getElementById('records').classList.contains('active')) {
+                    console.log('[DELETE_EXECUTE] 当前在审核记录页面，立即刷新');
+                    loadAuditRecords();
+                } else {
+                    console.log('[DELETE_EXECUTE] 不在审核记录页面，但仍然刷新数据');
+                    // 即使不在审核记录页面也刷新，确保数据一致性
+                    setTimeout(() => loadAuditRecords(), 100);
+                }
+                
+                // 5. 关闭模态框并显示成功消息
+                closeDeleteEventModal();
+                showTemporaryMessage(`✅ 事件已成功删除，删除记录已保存`, 'success');
+                
+                // 6. 延迟同步云端数据，确保一致性
+                setTimeout(() => {
+                    if (collaborationEnabled) {
+                        loadCloudData();
+                    }
+                }, 2000);
+                
+                console.log('[DELETE_EXECUTE] 删除操作完成，删除记录ID:', request.id);
+                
+            } catch (error) {
+                console.error('[DELETE_EXECUTE] 删除操作失败:', error);
+                showTemporaryMessage('❌ 删除操作失败: ' + error.message, 'error');
+                
+                // 发生错误时也要重置按钮状态
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = '确认删除';
+                }
+                
+                // 不要关闭模态框，让用户可以重试
+                throw error; // 重新抛出错误供上层处理
+                
+            } finally {
+                // 确保按钮状态被重置（双重保险）
+                setTimeout(() => {
+                    if (confirmBtn) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.textContent = '确认删除';
+                    }
+                }, 500);
+            }
+        }
+
+        // localStorage清理辅助函数
+        function cleanupLocalStorage() {
+            console.log('[CLEANUP] 开始清理localStorage以释放空间');
+            
+            try {
+                // 1. 清理图片数据，只保留图片元信息
+                const cleanedRequests = requests.map(req => {
+                    if (req.images && req.images.length > 0) {
+                        return {
+                            ...req,
+                            images: req.images.map(img => ({
+                                name: img.name,
+                                type: img.type,
+                                size: img.size,
+                                data: null // 清理图片数据，保留元信息
+                            }))
+                        };
+                    }
+                    return req;
+                });
+                
+                const cleanedEvents = approvedEvents.map(event => {
+                    if (event.images && event.images.length > 0) {
+                        return {
+                            ...event,
+                            images: event.images.map(img => ({
+                                name: img.name,
+                                type: img.type,
+                                size: img.size,
+                                data: null // 清理图片数据，保留元信息
+                            }))
+                        };
+                    }
+                    return event;
+                });
+                
+                // 2. 保存清理后的数据
+                localStorage.setItem('massRequests', JSON.stringify(cleanedRequests));
+                localStorage.setItem('approvedEvents', JSON.stringify(cleanedEvents));
+                
+                // 3. 更新内存中的数据
+                requests.splice(0, requests.length, ...cleanedRequests);
+                approvedEvents.splice(0, approvedEvents.length, ...cleanedEvents);
+                
+                console.log('[CLEANUP] localStorage清理完成，图片数据已移除');
+                return true;
+                
+            } catch (error) {
+                console.error('[CLEANUP] localStorage清理失败:', error);
+                return false;
+            }
+        }
+
+        // 安全保存到localStorage的函数
+        function safeLocalStorageSave(key, data) {
+            try {
+                localStorage.setItem(key, JSON.stringify(data));
+                return true;
+            } catch (error) {
+                if (error.name === 'QuotaExceededError') {
+                    console.warn('[SAFE_SAVE] localStorage配额超限，尝试清理数据');
+                    if (cleanupLocalStorage()) {
+                        try {
+                            localStorage.setItem(key, JSON.stringify(data));
+                            showTemporaryMessage('⚠️ 存储空间不足，已清理部分图片数据', 'warning');
+                            return true;
+                        } catch (secondError) {
+                            console.error('[SAFE_SAVE] 清理后仍然保存失败:', secondError);
+                            showTemporaryMessage('❌ 存储空间严重不足，请清理浏览器数据', 'error');
+                            return false;
+                        }
+                    }
+                }
+                console.error('[SAFE_SAVE] 保存失败:', error);
+                return false;
+            }
+        }
+
+        // 调试删除按钮状态的函数
+        function debugDeleteButtonState() {
+            const confirmBtn = document.getElementById('confirmDeleteEventBtn');
+            const modal = document.getElementById('deleteEventModal');
+            
+            console.log('[DEBUG_BUTTON] 删除按钮状态检查:');
+            console.log('[DEBUG_BUTTON] 按钮存在:', !!confirmBtn);
+            console.log('[DEBUG_BUTTON] 模态框显示:', modal ? modal.style.display : 'modal not found');
+            
+            if (confirmBtn) {
+                console.log('[DEBUG_BUTTON] 按钮禁用状态:', confirmBtn.disabled);
+                console.log('[DEBUG_BUTTON] 按钮文本:', confirmBtn.textContent);
+                console.log('[DEBUG_BUTTON] 按钮样式:', confirmBtn.style.cssText);
+                
+                // 强制重置按钮状态
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确认删除';
+                console.log('[DEBUG_BUTTON] 已强制重置按钮状态');
+            }
+            
+            console.log('[DEBUG_BUTTON] 当前要删除的事件:', currentEventToDelete);
+            
+            return {
+                buttonExists: !!confirmBtn,
+                buttonDisabled: confirmBtn ? confirmBtn.disabled : null,
+                buttonText: confirmBtn ? confirmBtn.textContent : null,
+                modalVisible: modal ? modal.style.display : null,
+                currentEvent: currentEventToDelete
+            };
+        }
+
+        // 强制重置删除按钮状态的函数
+        function forceResetDeleteButton() {
+            const confirmBtn = document.getElementById('confirmDeleteEventBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确认删除';
+                confirmBtn.style.opacity = '1';
+                confirmBtn.style.cursor = 'pointer';
+                console.log('[FORCE_RESET] 删除按钮状态已强制重置');
+                showTemporaryMessage('🔧 删除按钮状态已重置', 'info');
+            } else {
+                console.error('[FORCE_RESET] 找不到删除按钮');
+                showTemporaryMessage('❌ 找不到删除按钮', 'error');
+            }
+        }
+
+        // 调试复制功能
+        function debugCopyFunction() {
+            console.log('[DEBUG_COPY] 开始调试复制功能');
+            
+            const report = {
+                approvedEventsCount: approvedEvents.length,
+                clipboardAPISupport: !!navigator.clipboard,
+                clipboardWriteSupport: !!(navigator.clipboard && navigator.clipboard.writeText),
+                execCommandSupport: !!document.execCommand,
+                events: approvedEvents.map(e => ({
+                    id: e.id,
+                    idType: typeof e.id,
+                    title: e.title,
+                    arc: e.arc,
+                    cohort: e.cohort,
+                    hasContent: !!e.content,
+                    contentLength: e.content ? e.content.length : 0
+                }))
+            };
+            
+            console.log('[DEBUG_COPY] 调试报告:', report);
+            
+            let message = `📋 复制功能调试报告\n\n`;
+            message += `已批准事件数量: ${report.approvedEventsCount}\n`;
+            message += `现代剪贴板API支持: ${report.clipboardAPISupport ? '✅' : '❌'}\n`;
+            message += `剪贴板写入支持: ${report.clipboardWriteSupport ? '✅' : '❌'}\n`;
+            message += `execCommand支持: ${report.execCommandSupport ? '✅' : '❌'}\n\n`;
+            
+            if (report.events.length > 0) {
+                message += `事件列表:\n`;
+                report.events.forEach((event, index) => {
+                    message += `${index + 1}. ID: ${event.id} (${event.idType})\n`;
+                    message += `   标题: ${event.title}\n`;
+                    message += `   ARC-Cohort: ${event.arc}-${event.cohort}\n`;
+                    message += `   内容: ${event.hasContent ? `${event.contentLength}字符` : '无内容'}\n\n`;
+                });
+            } else {
+                message += `⚠️ 没有已批准的事件可供复制\n`;
+            }
+            
+            alert(message);
+            
+            return report;
+        }
+
+        // 测试复制功能
+        function testCopyFunction() {
+            console.log('[TEST_COPY] 开始测试复制功能');
+            
+            if (approvedEvents.length === 0) {
+                alert('❌ 没有已批准的事件可供测试\n\n请先添加一些事件，然后再测试复制功能。');
+                return;
+            }
+            
+            // 使用第一个事件进行测试
+            const testEvent = approvedEvents[0];
+            console.log('[TEST_COPY] 使用事件进行测试:', testEvent);
+            
+            alert(`🧪 开始测试复制功能\n\n将复制第一个事件的内容:\nID: ${testEvent.id}\n标题: ${testEvent.title}\n\n请查看控制台日志了解详细过程。`);
+            
+            // 调用复制函数
+            copyEventContent(testEvent.id);
+        }
+
+        // 创建测试事件用于复制测试
+        function createTestEventForCopy() {
+            const testEvent = {
+                id: 'test_copy_' + Date.now(),
+                title: 'TEST-COPY-test：这是一个测试复制功能的事件...',
+                date: new Date().toISOString().split('T')[0],
+                target: 'test',
+                arc: 'TEST',
+                cohort: 'COPY',
+                content: '这是一个专门用于测试复制功能的事件内容。\n\n包含多行文本和特殊字符：\n• 项目1\n• 项目2\n• 项目3\n\n测试时间：' + new Date().toLocaleString('zh-CN'),
+                submitter: '测试用户',
+                teamDomain: 'Test Domain',
+                notes: '复制功能测试事件',
+                images: []
+            };
+            
+            approvedEvents.push(testEvent);
+            localStorage.setItem('approvedEvents', JSON.stringify(approvedEvents));
+            generateCalendar();
+            
+            console.log('[CREATE_TEST] 测试事件已创建:', testEvent);
+            alert(`✅ 测试事件已创建！\n\nID: ${testEvent.id}\n标题: ${testEvent.title}\n\n现在可以在日历上看到这个事件，点击查看详情并测试复制功能。`);
+            
+            return testEvent;
+        }
+
+        // 强制测试复制功能
+        function forceTestCopy() {
+            console.log('[FORCE_TEST] 强制测试复制功能');
+            
+            const testText = `强制测试复制内容
+            
+这是一个强制测试复制功能的文本。
+
+测试信息：
+• 时间：${new Date().toLocaleString('zh-CN')}
+• 浏览器：${navigator.userAgent.split(' ')[0]}
+• 协议：${window.location.protocol}
+• 剪贴板API：${navigator.clipboard ? '支持' : '不支持'}
+
+如果您能看到这个内容被复制，说明复制功能正常工作！`;
+
+            console.log('[FORCE_TEST] 测试文本长度:', testText.length);
+            
+            // 创建一个临时事件对象
+            const tempEvent = {
+                id: 'force_test',
+                arc: 'FORCE',
+                cohort: 'TEST',
+                title: 'FORCE-TEST-test：强制测试复制功能',
+                content: testText
+            };
+            
+            alert('🚀 开始强制测试复制功能\n\n将直接测试复制机制，请查看控制台日志了解详细过程。');
+            
+            // 直接调用复制尝试函数
+            attemptCopy(testText, tempEvent);
         }
 
         // 带权限检查的删除事件函数
@@ -6101,7 +7680,28 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         window.checkDataStatus = checkDataStatus;
         window.showDebugInfo = showDebugInfo;
         
-        console.log('[INIT] 所有全局函数已注册');
+        // 删除功能相关函数
+        window.showDeleteEventModal = showDeleteEventModal;
+        window.closeDeleteEventModal = closeDeleteEventModal;
+        window.confirmDeleteEvent = confirmDeleteEvent;
+        window.updateCharCount = updateCharCount;
+        window.executeEventDeletion = executeEventDeletion;
+        window.cleanupLocalStorage = cleanupLocalStorage;
+        window.safeLocalStorageSave = safeLocalStorageSave;
+        window.debugDeleteButtonState = debugDeleteButtonState;
+        window.forceResetDeleteButton = forceResetDeleteButton;
+        window.debugCopyFunction = debugCopyFunction;
+        window.testCopyFunction = testCopyFunction;
+        window.createTestEventForCopy = createTestEventForCopy;
+        window.showCopyModal = showCopyModal;
+        window.attemptCopy = attemptCopy;
+        window.execCommandCopy = execCommandCopy;
+        window.showCopySuccessModal = showCopySuccessModal;
+        window.showManualCopyModal = showManualCopyModal;
+        window.selectAndCopyManual = selectAndCopyManual;
+        window.forceTestCopy = forceTestCopy;
+        
+        console.log('[INIT] 所有全局函数已注册，包括删除功能');
     </script>
 </body>
 </html>
