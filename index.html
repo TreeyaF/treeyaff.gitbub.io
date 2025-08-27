@@ -1261,6 +1261,9 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h2 style="color: #333; font-size: 1.8rem; font-weight: 600; margin: 0;">待审核需求</h2>
                 <div style="display: flex; gap: 10px;">
+                    <button onclick="showVisitorStats()" style="background: #059669; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                        📊 访客统计
+                    </button>
                     <button onclick="clearCloudData()" style="background: #dc2626; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
                         ☁️ 清理云端
                     </button>
@@ -1276,7 +1279,12 @@
 
         <!-- 审核记录页面 -->
         <div id="records" class="tab-content">
-            <h2 style="color: #333; font-size: 1.8rem; font-weight: 600; margin-bottom: 1.5rem; text-align: center;">审核记录</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="color: #333; font-size: 1.8rem; font-weight: 600; margin: 0;">审核记录</h2>
+                <button onclick="debugRejectReasons()" style="background: #6f42c1; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    🔍 调试拒绝理由
+                </button>
+            </div>
             <div class="records-filter">
                 <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
                     <div style="display: flex; gap: 10px; align-items: center;">
@@ -1805,6 +1813,288 @@
             }
         }
         
+        // ===== 访客统计功能 =====
+        
+        // 生成访客ID（基于浏览器指纹）
+        function generateVisitorId() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('Visitor fingerprint', 2, 2);
+            
+            const fingerprint = [
+                navigator.userAgent,
+                navigator.language,
+                screen.width + 'x' + screen.height,
+                new Date().getTimezoneOffset(),
+                canvas.toDataURL()
+            ].join('|');
+            
+            // 简单哈希函数
+            let hash = 0;
+            for (let i = 0; i < fingerprint.length; i++) {
+                const char = fingerprint.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // 转换为32位整数
+            }
+            return 'visitor_' + Math.abs(hash).toString(36);
+        }
+        
+        // 记录访客统计
+        async function recordVisitorStats() {
+            try {
+                // 如果协同功能未启用，跳过统计
+                if (!collaborationEnabled || !supabase) {
+                    console.log('[VISITOR] 协同功能未启用，跳过访客统计');
+                    return;
+                }
+                
+                const visitorId = generateVisitorId();
+                const visitData = {
+                    visitor_id: visitorId,
+                    ip_address: 'hidden', // 隐私保护
+                    user_agent: navigator.userAgent.substring(0, 200), // 限制长度
+                    visit_time: new Date().toISOString(),
+                    page_url: window.location.href,
+                    referrer: document.referrer || 'direct',
+                    screen_resolution: screen.width + 'x' + screen.height,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    language: navigator.language
+                };
+                
+                console.log('[VISITOR] 记录访客数据:', visitorId);
+                
+                // 插入访客记录到Supabase
+                const { error } = await supabase
+                    .from('visitor_logs')
+                    .insert([visitData]);
+                
+                if (error) {
+                    console.error('[VISITOR] 访客统计记录失败:', error);
+                } else {
+                    console.log('[VISITOR] 访客统计记录成功');
+                }
+                
+            } catch (error) {
+                console.error('[VISITOR] 访客统计功能出错:', error);
+            }
+        }
+        
+        // 获取访客统计数据
+        async function getVisitorStats() {
+            try {
+                if (!collaborationEnabled || !supabase) {
+                    console.log('[VISITOR_STATS] 协同功能未启用或数据库未连接');
+                    return null;
+                }
+                
+                console.log('[VISITOR_STATS] 开始获取访客统计数据...');
+                
+                // 获取总访问次数
+                console.log('[VISITOR_STATS] 查询总访问次数...');
+                const { count: totalVisits, error: totalError } = await supabase
+                    .from('visitor_logs')
+                    .select('*', { count: 'exact', head: true });
+                
+                if (totalError) {
+                    console.error('[VISITOR_STATS] 获取总访问次数失败:', totalError);
+                    throw new Error(`获取总访问次数失败: ${totalError.message}`);
+                }
+                
+                // 获取独立访客数
+                console.log('[VISITOR_STATS] 查询独立访客数...');
+                const { data: uniqueVisitors, error: uniqueError } = await supabase
+                    .from('visitor_logs')
+                    .select('visitor_id');
+                
+                if (uniqueError) {
+                    console.error('[VISITOR_STATS] 获取独立访客数失败:', uniqueError);
+                    throw new Error(`获取独立访客数失败: ${uniqueError.message}`);
+                }
+                
+                // 计算独立访客数
+                const uniqueVisitorIds = new Set(uniqueVisitors?.map(v => v.visitor_id) || []);
+                
+                // 获取今日访问数
+                console.log('[VISITOR_STATS] 查询今日访问数...');
+                const today = new Date().toISOString().split('T')[0];
+                const { count: todayVisits, error: todayError } = await supabase
+                    .from('visitor_logs')
+                    .select('*', { count: 'exact', head: true })
+                    .gte('visit_time', today + 'T00:00:00.000Z')
+                    .lt('visit_time', today + 'T23:59:59.999Z');
+                
+                if (todayError) {
+                    console.error('[VISITOR_STATS] 获取今日访问数失败:', todayError);
+                    throw new Error(`获取今日访问数失败: ${todayError.message}`);
+                }
+                
+                const stats = {
+                    totalVisits: totalVisits || 0,
+                    uniqueVisitors: uniqueVisitorIds.size,
+                    todayVisits: todayVisits || 0
+                };
+                
+                console.log('[VISITOR_STATS] 统计数据获取成功:', stats);
+                return stats;
+                
+            } catch (error) {
+                console.error('[VISITOR_STATS] 获取访客统计失败:', error);
+                
+                // 检查是否是表不存在的错误
+                if (error.message && error.message.includes('relation "visitor_logs" does not exist')) {
+                    throw new Error('visitor_logs表不存在，请先在Supabase中创建该表');
+                }
+                
+                throw error;
+            }
+        }
+        
+        // 显示访客统计
+        async function showVisitorStats() {
+            console.log('[VISITOR_STATS] showVisitorStats函数被调用');
+            
+            // 首先检查协同功能状态
+            console.log('[VISITOR_STATS] 检查协同功能状态...');
+            console.log('[VISITOR_STATS] collaborationEnabled:', collaborationEnabled);
+            console.log('[VISITOR_STATS] supabase:', !!supabase);
+            
+            if (!collaborationEnabled || !supabase) {
+                const statusInfo = `❌ 访客统计功能需要启用协同功能\n\n` +
+                    `当前状态：\n` +
+                    `• 协同功能：${collaborationEnabled ? '✅ 已启用' : '❌ 未启用'}\n` +
+                    `• 数据库连接：${supabase ? '✅ 已连接' : '❌ 未连接'}\n\n` +
+                    `解决方案：\n` +
+                    `1. 在页面顶部横幅中配置Supabase API密钥\n` +
+                    `2. 确保在Supabase中创建了visitor_logs表\n` +
+                    `3. 重新加载页面以启用协同功能\n\n` +
+                    `如需帮助，请联系管理员。`;
+                
+                console.log('[VISITOR_STATS] 显示状态信息:', statusInfo);
+                alert(statusInfo);
+                return;
+            }
+            
+            console.log('[VISITOR_STATS] 开始获取统计数据...');
+            const stats = await getVisitorStats();
+            if (!stats) {
+                alert('❌ 无法获取访客统计数据\n\n可能的原因：\n1. visitor_logs表不存在\n2. 数据库权限不足\n3. 网络连接问题\n\n请检查控制台错误信息或联系管理员。');
+                return;
+            }
+            
+            alert(`📊 访客统计数据\n\n` +
+                  `🔢 总访问次数: ${stats.totalVisits}\n` +
+                  `👥 独立访客数: ${stats.uniqueVisitors}\n` +
+                  `📅 今日访问: ${stats.todayVisits}\n\n` +
+                  `统计时间: ${new Date().toLocaleString('zh-CN')}`);
+        }
+        
+        // 调试拒绝理由功能
+        function debugRejectReasons() {
+            console.log('[DEBUG_REJECT] 开始调试拒绝理由...');
+            
+            const rejectedRequests = requests.filter(r => r.status === 'rejected');
+            console.log('[DEBUG_REJECT] 被拒绝的请求总数:', rejectedRequests.length);
+            
+            if (rejectedRequests.length === 0) {
+                alert('📊 调试结果\n\n当前没有被拒绝的请求。\n\n建议：先拒绝一个请求来测试拒绝理由功能。');
+                return;
+            }
+            
+            let debugInfo = `📊 拒绝理由调试报告\n\n`;
+            debugInfo += `被拒绝请求总数: ${rejectedRequests.length}\n\n`;
+            
+            rejectedRequests.forEach((req, index) => {
+                debugInfo += `--- 请求 ${index + 1} ---\n`;
+                debugInfo += `ID: ${req.id}\n`;
+                debugInfo += `状态: ${req.status}\n`;
+                debugInfo += `rejectReason: ${req.rejectReason || '无'}\n`;
+                debugInfo += `rejection_reason: ${req.rejection_reason || '无'}\n`;
+                debugInfo += `拒绝时间: ${req.rejectTime || '无'}\n`;
+                debugInfo += `内容预览: ${req.content.substring(0, 50)}...\n\n`;
+            });
+            
+            console.log('[DEBUG_REJECT] 详细信息:', rejectedRequests);
+            alert(debugInfo);
+        }
+        
+        // 测试访客统计功能
+        async function testVisitorStats() {
+            console.log('[TEST_VISITOR] 开始测试访客统计功能...');
+            
+            // 检查基础状态
+            console.log('[TEST_VISITOR] 协同功能状态:', collaborationEnabled);
+            console.log('[TEST_VISITOR] Supabase连接:', !!supabase);
+            
+            if (!collaborationEnabled || !supabase) {
+                alert('❌ 测试失败：协同功能未启用\n\n请先配置Supabase API密钥并重新加载页面。');
+                return;
+            }
+            
+            try {
+                // 测试表是否存在
+                console.log('[TEST_VISITOR] 测试visitor_logs表是否存在...');
+                const { data, error } = await supabase
+                    .from('visitor_logs')
+                    .select('count')
+                    .limit(1);
+                
+                if (error) {
+                    console.error('[TEST_VISITOR] 表测试失败:', error);
+                    alert(`❌ visitor_logs表测试失败\n\n错误信息：${error.message}\n\n请确保已在Supabase中创建visitor_logs表。`);
+                    return;
+                }
+                
+                console.log('[TEST_VISITOR] ✅ visitor_logs表存在');
+                
+                // 测试插入访客记录
+                console.log('[TEST_VISITOR] 测试插入访客记录...');
+                const testRecord = {
+                    visitor_id: 'test_' + Date.now(),
+                    user_agent: 'Test Browser',
+                    visit_time: new Date().toISOString(),
+                    page_url: window.location.href,
+                    referrer: 'test',
+                    screen_resolution: '1920x1080',
+                    timezone: 'Asia/Shanghai',
+                    language: 'zh-CN'
+                };
+                
+                const { error: insertError } = await supabase
+                    .from('visitor_logs')
+                    .insert([testRecord]);
+                
+                if (insertError) {
+                    console.error('[TEST_VISITOR] 插入测试失败:', insertError);
+                    alert(`❌ 插入测试记录失败\n\n错误信息：${insertError.message}`);
+                    return;
+                }
+                
+                console.log('[TEST_VISITOR] ✅ 测试记录插入成功');
+                
+                // 测试查询统计数据
+                console.log('[TEST_VISITOR] 测试查询统计数据...');
+                const stats = await getVisitorStats();
+                
+                if (stats) {
+                    console.log('[TEST_VISITOR] ✅ 统计数据查询成功:', stats);
+                    alert(`✅ 访客统计功能测试成功！\n\n` +
+                          `测试结果：\n` +
+                          `• 总访问次数: ${stats.totalVisits}\n` +
+                          `• 独立访客数: ${stats.uniqueVisitors}\n` +
+                          `• 今日访问: ${stats.todayVisits}\n\n` +
+                          `访客统计功能正常工作！`);
+                } else {
+                    alert('❌ 统计数据查询失败\n\n请检查控制台错误信息。');
+                }
+                
+            } catch (error) {
+                console.error('[TEST_VISITOR] 测试过程出错:', error);
+                alert(`❌ 访客统计测试失败\n\n错误信息：${error.message}\n\n请检查控制台获取详细信息。`);
+            }
+        }
+        
         // 初始化协同功能 - 增强诊断版本
         async function initCollaboration() {
             try {
@@ -1974,7 +2264,7 @@
                             submitTime: new Date(item.created_at || Date.now()).toLocaleString('zh-CN'),
                             // 审核相关字段
                             approveTime: item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN') : null,
-                            rejectReason: item.rejection_reason || '',
+                            rejectReason: item.rejection_reason || (item.notes && item.notes.includes('拒绝理由:') ? item.notes.replace('拒绝理由: ', '') : '') || '',
                             rejectTime: item.updated_at && item.status === 'rejected' ? new Date(item.updated_at).toLocaleString('zh-CN') : null
                         };
                     } catch (error) {
@@ -5167,6 +5457,9 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             // 首先初始化权限系统
             initPermissionSystem();
             
+            // 记录访客统计
+            recordVisitorStats();
+            
             // 加载本地存储的数据
             loadLocalData();
             
@@ -5790,13 +6083,29 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                                 updated_at: new Date().toISOString()
                             };
                             
+                            // 通过title匹配而不是ID
+                            const requestTitle = `${request.arc} - ${request.cohort} - ${request.target}`;
+                            console.log(`[APPROVE] 通过title匹配:`, requestTitle);
+                            
                             const { error: updateError } = await supabase
                                 .from('requests')
                                 .update(updateData)
-                                .eq('id', request.id);
+                                .eq('title', requestTitle)
+                                .eq('status', 'pending');
                             
                             if (updateError) {
                                 console.error(`[APPROVE] 状态更新失败 (${request.id}):`, updateError);
+                                
+                                // 备用方案：通过content匹配
+                                const { error: fallbackError } = await supabase
+                                    .from('requests')
+                                    .update(updateData)
+                                    .eq('content', request.content)
+                                    .eq('status', 'pending');
+                                
+                                if (fallbackError) {
+                                    console.error(`[APPROVE] 备用匹配也失败:`, fallbackError);
+                                }
                             } else {
                                 console.log(`[APPROVE] 状态更新成功 (${request.id})`);
                             }
@@ -5902,23 +6211,40 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                         try {
                             const updateData = {
                                 status: 'rejected',
+                                rejection_reason: reason,  // 保存拒绝理由
                                 updated_at: new Date().toISOString()
                             };
                             
-                            // 注意：不使用rejection_reason字段，因为表中可能不存在
-                            // 拒绝原因可以记录在content字段或其他现有字段中
-                            
                             console.log(`[REJECT] 更新数据:`, updateData);
+                            console.log(`[REJECT] 请求ID类型:`, typeof request.id, request.id);
+                            
+                            // 尝试通过title匹配而不是ID，因为ID可能不匹配
+                            const requestTitle = `${request.arc} - ${request.cohort} - ${request.target}`;
+                            console.log(`[REJECT] 尝试通过title匹配:`, requestTitle);
                             
                             const { data, error } = await supabase
                                 .from('requests')
                                 .update(updateData)
-                                .eq('id', request.id);
+                                .eq('title', requestTitle)
+                                .eq('status', 'pending'); // 确保只更新pending状态的记录
                             
                             if (error) {
-                                console.error(`[REJECT] ❌ 云端状态更新失败 (${request.id}):`, error);
-                                console.error(`[REJECT] 错误详情:`, error.message, error.details);
-                                alert(`❌ 请求 ${request.id} 的云端状态更新失败：\n${error.message}`);
+                                console.error(`[REJECT] ❌ 通过title匹配失败:`, error);
+                                
+                                // 备用方案：通过content匹配
+                                console.log(`[REJECT] 尝试通过content匹配...`);
+                                const { data: fallbackData, error: fallbackError } = await supabase
+                                    .from('requests')
+                                    .update(updateData)
+                                    .eq('content', request.content)
+                                    .eq('status', 'pending');
+                                
+                                if (fallbackError) {
+                                    console.error(`[REJECT] ❌ 通过content匹配也失败:`, fallbackError);
+                                    alert(`❌ 请求的云端状态更新失败\n\n可能原因：\n1. 云端记录不存在\n2. ID格式不匹配\n\n本地状态已更新，但云端可能不同步。`);
+                                } else {
+                                    console.log(`[REJECT] ✅ 通过content匹配成功:`, fallbackData);
+                                }
                             } else {
                                 console.log(`[REJECT] ✅ 云端状态更新成功 (${request.id}):`, data);
                             }
@@ -6056,6 +6382,19 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             const statusFilter = document.getElementById('statusFilter').value;
             console.log('[RECORDS] 状态筛选:', statusFilter);
             console.log('[RECORDS] 总请求数:', requests.length);
+            
+            // 调试：检查被拒绝的请求数据
+            const rejectedRequests = requests.filter(r => r.status === 'rejected');
+            console.log('[RECORDS] 被拒绝的请求数量:', rejectedRequests.length);
+            rejectedRequests.forEach(req => {
+                console.log('[RECORDS] 被拒绝请求详情:', {
+                    id: req.id,
+                    status: req.status,
+                    rejectReason: req.rejectReason,
+                    rejectTime: req.rejectTime,
+                    rejection_reason: req.rejection_reason // 检查是否有这个字段
+                });
+            });
             
             // 显示所有请求的状态分布
             const statusCounts = {
@@ -6203,11 +6542,37 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                             <div><strong>备注：</strong> ${request.notes}</div>
                         ` : ''}
                         
-                        ${request.rejectReason ? `
-                            <div style="margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 4px;">
-                                <strong>拒绝原因：</strong> ${request.rejectReason}
+                        ${(request.rejectReason || request.rejection_reason) ? `
+                            <div style="margin-top: 15px; padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; border-left: 4px solid #dc3545;">
+                                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-size: 18px; margin-right: 8px;">❌</span>
+                                    <strong style="color: #721c24; font-size: 16px;">拒绝原因</strong>
+                                </div>
+                                <div style="color: #721c24; line-height: 1.5; font-weight: 500;">
+                                    ${request.rejectReason || request.rejection_reason || '未提供拒绝原因'}
+                                </div>
+                                ${request.rejectTime ? `
+                                    <div style="margin-top: 8px; font-size: 14px; color: #856404;">
+                                        <strong>拒绝时间：</strong> ${request.rejectTime}
+                                    </div>
+                                ` : ''}
                             </div>
-                        ` : ''}
+                        ` : (request.status === 'rejected' ? `
+                            <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; border-left: 4px solid #ffc107;">
+                                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-size: 18px; margin-right: 8px;">⚠️</span>
+                                    <strong style="color: #856404; font-size: 16px;">状态信息</strong>
+                                </div>
+                                <div style="color: #856404; line-height: 1.5;">
+                                    此请求已被拒绝，但未记录拒绝原因
+                                </div>
+                                ${request.rejectTime ? `
+                                    <div style="margin-top: 8px; font-size: 14px; color: #856404;">
+                                        <strong>拒绝时间：</strong> ${request.rejectTime}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : '')}
                         
                         ${request.deleteReason ? `
                             <div style="margin-top: 10px; padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px;">
@@ -8431,6 +8796,15 @@ Supabase: ${supabase ? '已连接' : '未连接'}
         window.clearAllLocalData = clearAllLocalData;
         window.checkDataStatus = checkDataStatus;
         window.showDebugInfo = showDebugInfo;
+        
+        // 访客统计函数
+        window.recordVisitorStats = recordVisitorStats;
+        window.getVisitorStats = getVisitorStats;
+        window.showVisitorStats = showVisitorStats;
+        window.testVisitorStats = testVisitorStats;
+        
+        // 调试函数
+        window.debugRejectReasons = debugRejectReasons;
         
         // Others选择处理函数
         window.handleArcChange = handleArcChange;
