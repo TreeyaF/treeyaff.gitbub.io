@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCM Blurb 提报 - 无限制版本V8.25 (修复Community Name显示)</title>
+    <title>OCM Blurb 提报 V2.0</title>
     
     <!-- Supabase SDK for collaboration -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -1162,7 +1162,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>OCM Blurb 提报 - 无限制版本V8.25 (修复Community Name显示)</h1>
+            <h1>OCM Blurb 提报 V2.0</h1>
             
             <!-- 用户角色选择 -->
             <div id="userRoleSelector" style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 5px;">
@@ -1183,7 +1183,7 @@
                 <button onclick="manualSync()" style="background: #10b981; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px; font-size: 12px;">
                     🔄 同步数据
                 </button>
-                <button onclick="showDebugInfo()" style="background: #6366f1; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                <button onclick="showDebugInfo()" style="background: #6366f1; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🔍 调试
                 </button>
                 <button onclick="diagnoseSyncIssues()" style="background: #8b5cf6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
@@ -1194,60 +1194,6 @@
                 </button>
                 <button onclick="loadPendingRequests(); generateCalendar();" style="background: #10b981; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🔄 刷新审核
-                </button>
-                <button onclick="manualSync()" style="background: #3b82f6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    ☁️ 手动同步
-                </button>
-                <button onclick="testNetworkConnection()" style="background: #059669; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🔗 快速网络测试
-                </button>
-                <button onclick="forceResetDeleteButton()" style="background: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🔧 重置删除按钮
-                </button>
-                <button onclick="debugCopyFunction()" style="background: #17a2b8; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🔍 调试复制功能
-                </button>
-                <button onclick="testCopyFunction()" style="background: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🧪 测试复制
-                </button>
-                <button onclick="createTestEventForCopy()" style="background: #fd7e14; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    ➕ 创建测试事件
-                </button>
-                <button onclick="forceTestCopy()" style="background: #dc3545; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🚀 强制测试复制
-                </button>
-                <button onclick="checkTableStructure()" style="background: #0891b2; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    📋 检查表结构
-                </button>
-                <button onclick="checkPendingInCloud()" style="background: #8b5cf6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🔍 检查云端
-                </button>
-                <button onclick="testRejectSync()" style="background: #ef4444; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🧪 测试拒绝
-                </button>
-                <button onclick="checkRejectedInCloud()" style="background: #f97316; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    📋 查看拒绝
-                </button>
-                <button onclick="testEventTitleDisplay()" style="background: #8b5cf6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🏷️ 测试标题
-                </button>
-                <button onclick="createSampleEvent()" style="background: #10b981; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    📝 创建示例
-                </button>
-                <button onclick="checkImageData()" style="background: #6366f1; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🖼️ 检查图片
-                </button>
-                <button onclick="createTestRequestWithImage()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    📷 测试图片
-                </button>
-                <button onclick="testUserImageUpload()" style="background: #8b5cf6; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    👤 用户上传
-                </button>
-                <button onclick="simulateUserImageUpload()" style="background: #06b6d4; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🎭 模拟上传
-                </button>
-                <button onclick="fullUserImageTest()" style="background: #10b981; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                    🔄 完整测试
                 </button>
                 <button onclick="smartCleanLocalStorage()" style="background: #f59e0b; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
                     🧹 智能清理
@@ -1268,12 +1214,7 @@
         <div id="calendar" class="tab-content active">
             <h2 style="color: #333; font-size: 1.8rem; font-weight: 600; margin-bottom: 1.5rem; text-align: center;">OCM Blurb 日历</h2>
             <p style="text-align: center; color: #6c757d; margin-bottom: 20px;">📅 点击日期提交新的Blurb需求</p>
-            
-            <!-- 无限制版本提示 -->
-            <div style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);">
-                <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 5px;">🚀 无限制版本 V8.25</div>
-                <div style="font-size: 0.9rem; opacity: 0.9;">✅ 无提报限制 | 📋 简化复制 | 🔄 自动关闭弹窗 | 🎯 修复事件冒泡 | ✏️ OCM POC编辑 | 📝 修复备注显示 | 🔧 自动修复数据 | 🌍 Others选项 | 🛠️ 修复编辑验证 | 🔄 修复编辑同步</div>
-            </div>
+            <p style="text-align: center; color: #dc3545; margin-bottom: 20px; font-weight: 500;">如果出现数据同步不成功，请链接VPN后重新打开页面</p>
             
             <div class="legend">
                 <div class="legend-item" onclick="filterCalendar('all')" data-filter="all">
