@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCM Blurb 提报 V2.0</title>
+    <title>OCM Blurb 提报 V8.35 - 循环组云端同步修复版</title>
     
     <!-- Supabase SDK for collaboration -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -2249,9 +2249,13 @@
                 const cloudRequests = (requestsData || []).map(item => {
                     try {
                         const titleParts = (item.title || '').split(' - ');
+                        const rawContent = item.content || '';
+                        const rgMatch = rawContent.match(/\[RG:(\d+)\]$/);
+                        const cleanContent = rawContent.replace(/\[RG:\d+\]$/, '').trim();
+                        
                         return {
                             id: item.id,
-                            content: item.content || '',
+                            content: cleanContent,
                             arc: titleParts[0] || 'N/A',
                             cohort: titleParts[1] || 'N/A',
                             target: titleParts[2] || 'unknown',
@@ -2265,7 +2269,9 @@
                             // 审核相关字段
                             approveTime: item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN') : null,
                             rejectReason: item.rejection_reason || (item.notes && item.notes.includes('拒绝理由:') ? item.notes.replace('拒绝理由: ', '') : '') || '',
-                            rejectTime: item.updated_at && item.status === 'rejected' ? new Date(item.updated_at).toLocaleString('zh-CN') : null
+                            rejectTime: item.updated_at && item.status === 'rejected' ? new Date(item.updated_at).toLocaleString('zh-CN') : null,
+                            // 从content字段提取循环组信息
+                            recurringGroup: rgMatch ? rgMatch[1] : null
                         };
                     } catch (error) {
                         console.error('[CLOUD] 处理请求数据时出错:', error, item);
@@ -5025,22 +5031,23 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 tab.classList.remove('active');
             });
             
-            document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
-            
-            // 如果切换到管理员页面，重新加载待审核需求
-            if (tabName === 'admin') {
-                console.log('[TAB] 切换到管理员页面，加载待审核需求');
-                loadPendingRequests();
+            const targetTab = document.getElementById(tabName);
+            if (targetTab) {
+                targetTab.classList.add('active');
             }
             
-            // 如果切换到审核记录页面，加载审核记录
-            if (tabName === 'records') {
-                console.log('[TAB] 切换到审核记录页面，加载审核记录');
+            const targetButton = document.getElementById(tabName + 'Tab');
+            if (targetButton) {
+                targetButton.classList.add('active');
+            }
+            
+            if (tabName === 'calendar') {
+                setTimeout(() => generateCalendar(), 50);
+            } else if (tabName === 'admin') {
+                loadPendingRequests();
+            } else if (tabName === 'records') {
                 loadAuditRecords();
             }
-            
-            console.log(`[TAB] 标签页切换完成: ${tabName}`);
         }
         
         // 确保函数在全局作用域中可用
@@ -5477,7 +5484,8 @@ Supabase: ${supabase ? '已连接' : '未连接'}
             }
             
             // 然后加载基本功能
-            generateCalendar();
+            showTab('calendar');
+            setTimeout(() => generateCalendar(), 100);
             
             // 如果有待审核数据，也加载审核页面
             const pendingCount = requests.filter(r => r.status === 'pending').length;
@@ -5805,14 +5813,15 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                     
                     const cloudData = {
                         title: `${request.arc} - ${request.cohort} - ${request.target}`,
-                        content: request.content,
+                        content: request.recurringGroup ? 
+                            `${request.content}\n[RG:${request.recurringGroup}]` : request.content,
                         date: request.sendDate,
-                        time: '09:00:00', // 添加必需的time字段
+                        time: '09:00:00',
                         status: 'pending',
                         contact: request.submitter,
                         email: request.email,
-                        location: request.teamDomain || 'Online', // 添加location字段
-                        images: request.images || [], // 包含图片数据
+                        location: request.teamDomain || 'Online',
+                        images: request.images || [],
                         created_at: new Date().toISOString()
                     };
                     
@@ -5932,6 +5941,40 @@ Supabase: ${supabase ? '已连接' : '未连接'}
 
         // 占位函数替换为完整实现
         
+        // 合并循环请求
+        function mergeRecurringRequests(requests) {
+            const recurringGroups = {};
+            const nonRecurringRequests = [];
+            
+            requests.forEach(request => {
+                if (request.recurringGroup) {
+                    if (!recurringGroups[request.recurringGroup]) {
+                        recurringGroups[request.recurringGroup] = [];
+                    }
+                    recurringGroups[request.recurringGroup].push(request);
+                } else {
+                    nonRecurringRequests.push(request);
+                }
+            });
+            
+            const mergedRecurringRequests = Object.values(recurringGroups).map(group => {
+                const baseRequest = group[0];
+                const sendDates = group.map(req => req.sendDate).sort();
+                
+                return {
+                    ...baseRequest,
+                    id: baseRequest.recurringGroup,
+                    isRecurringGroup: true,
+                    totalCount: group.length,
+                    sendDates: sendDates,
+                    sendDate: `${sendDates[0]} ~ ${sendDates[sendDates.length - 1]}`,
+                    groupRequests: group
+                };
+            });
+            
+            return [...nonRecurringRequests, ...mergedRecurringRequests];
+        }
+
         // 加载待审核需求
         function loadPendingRequests() {
             console.log('[PENDING] 开始加载待审核请求');
@@ -5985,71 +6028,33 @@ Supabase: ${supabase ? '已连接' : '未连接'}
                 return;
             }
             
-            // 按循环组分组
-            const groupedRequests = {};
-            pendingRequests.forEach(request => {
-                const groupKey = request.recurringGroup || request.id;
-                if (!groupedRequests[groupKey]) {
-                    groupedRequests[groupKey] = [];
-                }
-                groupedRequests[groupKey].push(request);
-            });
+            // 使用循环组合并
+            const mergedRequests = mergeRecurringRequests(pendingRequests);
             
             // 生成显示内容
-            const groupsHtml = Object.values(groupedRequests).map(group => {
-                const mainRequest = group[0]; // 使用第一个请求作为主要信息
-                const isRecurring = group.length > 1;
-                const dates = group.map(r => r.sendDate).sort();
+            const groupsHtml = mergedRequests.map(request => {
+                const isRecurring = request.isRecurringGroup;
+                const groupId = request.id;
                 
                 return `
                 <div class="request-item">
                     <div class="request-header">
-                        <strong>${mainRequest.arc}-${mainRequest.cohort}${isRecurring ? ` (循环 - ${group.length}个任务)` : ` - ${mainRequest.sendDate}`}</strong>
+                        <strong>${request.arc}-${request.cohort}${isRecurring ? ` (循环组 - ${request.totalCount}个任务)` : ` - ${request.sendDate}`}</strong>
                         <div class="request-actions">
-                            <button class="btn btn-success" onclick="approveRecurringGroup('${mainRequest.recurringGroup || mainRequest.id}')">✅ 通过</button>
-                            <button class="btn btn-danger" onclick="rejectRecurringGroup('${mainRequest.recurringGroup || mainRequest.id}')">❌ 拒绝</button>
+                            <button class="btn btn-success" onclick="approveRecurringGroup('${groupId}')">✅ 通过</button>
+                            <button class="btn btn-danger" onclick="rejectRecurringGroup('${groupId}')">❌ 拒绝</button>
                         </div>
                     </div>
                     <div class="request-meta">
-                        提交人：${mainRequest.submitter}${mainRequest.teamDomain ? ` (${mainRequest.teamDomain})` : ''} | 邮箱：${mainRequest.email} | 提交时间：${mainRequest.submitTime}
-                        ${isRecurring ? `<br><strong>发送日期：</strong> ${dates.join(', ')}<br><strong>循环设置：</strong> ${mainRequest.recurrence === 'weekly' ? '每周' : '每月'}循环${mainRequest.recurrenceEnd ? ` 至 ${mainRequest.recurrenceEnd}` : ' (无限)'}` : ''}
+                        提交人：${request.submitter} | 邮箱：${request.email} | 提交时间：${request.submitTime}
+                        ${isRecurring ? `<br><strong>发送日期：</strong> ${request.sendDates.join(', ')}` : ''}
                     </div>
                     <div style="margin: 10px 0;">
                         <strong>发送内容：</strong><br>
-                        ${mainRequest.content.replace(/\n/g, '<br>')}
+                        ${request.content.replace(/\n/g, '<br>')}
                     </div>
-                    ${(() => {
-                        // 调试图片数据
-                        console.log(`[PENDING] 请求 ${mainRequest.id} 的图片数据:`, mainRequest.images);
-                        
-                        if (mainRequest.images && mainRequest.images.length > 0) {
-                            console.log(`[PENDING] 找到 ${mainRequest.images.length} 张图片`);
-                            mainRequest.images.forEach((img, index) => {
-                                console.log(`[PENDING] 图片 ${index + 1}:`, {
-                                    name: img.name,
-                                    size: img.size,
-                                    type: img.type,
-                                    hasData: !!img.data,
-                                    dataLength: img.data ? img.data.length : 0
-                                });
-                            });
-                            
-                            return `
-                                <div style="margin: 10px 0;">
-                                    <strong>附件图片 (${mainRequest.images.length}张)：</strong>
-                                    <div style="margin-top: 8px;">
-                                        ${createImageGallery(mainRequest.images)}
-                                    </div>
-                                </div>
-                            `;
-                        } else {
-                            console.log(`[PENDING] 请求 ${mainRequest.id} 没有图片数据`);
-                            return '';
-                        }
-                    })()}
-                    ${mainRequest.notes ? `<div><strong>备注：</strong> ${mainRequest.notes}</div>` : ''}
-                </div>
-            `}).join('');
+                </div>`;
+            }).join('');
             
             pendingContainer.innerHTML = groupsHtml;
         }
